@@ -218,7 +218,7 @@ final class SubscriptionManagerQuotaTests: XCTestCase {
     // Test product IDs are correct
     func testProductIDsAreCorrect() {
         let manager = SubscriptionManager.shared
-        XCTAssertEqual(manager.bimonthlySubId, "com.flow.subscription.bimonthly")
+        XCTAssertEqual(manager.yearlySubId, "com.flow.subscription.yearly")
         XCTAssertEqual(manager.lifetimeId, "com.flow.lifetime")
     }
 }

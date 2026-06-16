@@ -45,14 +45,14 @@
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Bimonthly Subscription",
-              "displayName" : "Flow Pro (Bimonthly)",
+              "description" : "Yearly Subscription",
+              "displayName" : "Flow Pro (Yearly)",
               "locale" : "en_US"
             }
           ],
-          "productID" : "com.flow.subscription.bimonthly",
-          "recurringSubscriptionPeriod" : "P2M",
-          "referenceName" : "Bimonthly",
+          "productID" : "com.flow.subscription.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Yearly",
           "subscriptionGroupID" : "19FF3C7D",
           "type" : "RecurringSubscription"
         }
