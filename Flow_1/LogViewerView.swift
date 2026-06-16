@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct LogViewerView: View {
-    @State private var logContent: String = "載入中..."
+    @State private var logContent: String = "Loading..."
     
     var body: some View {
         VStack(spacing: 0) {
@@ -24,7 +24,7 @@ struct LogViewerView: View {
                 Button(action: {
                     UIPasteboard.general.string = logContent
                 }) {
-                    Label("複製全部", systemImage: "doc.on.doc")
+                    Label("Copy All", systemImage: "doc.on.doc")
                 }
                 .buttonStyle(.bordered)
                 .accessibilityLabel("Copy all logs")
@@ -36,7 +36,7 @@ struct LogViewerView: View {
                     AppLogger.shared.clearLogs()
                     loadLogs()
                 }) {
-                    Label("清空", systemImage: "trash")
+                    Label("Clear", systemImage: "trash")
                 }
                 .buttonStyle(.bordered)
                 .accessibilityLabel("Clear logs")
@@ -45,7 +45,7 @@ struct LogViewerView: View {
             .padding()
             .background(Color(UIColor.systemBackground))
         }
-        .navigationTitle("系統日誌 (AppLog)")
+        .navigationTitle("System Logs")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             loadLogs()
@@ -56,9 +56,9 @@ struct LogViewerView: View {
         if let url = AppLogger.shared.logFileURL,
            let data = try? Data(contentsOf: url),
            let text = String(data: data, encoding: .utf8) {
-            logContent = text.isEmpty ? "日誌目前是空的。" : text
+            logContent = text.isEmpty ? "Logs are empty." : text
         } else {
-            logContent = "無法讀取日誌，或檔案尚未建立。"
+            logContent = "Unable to read logs."
         }
     }
 }

@@ -19,8 +19,11 @@ struct Flow_1App: App {
     
     var body: some Scene {
         WindowGroup {
-            // 暫時在開發期間強制顯示主畫面，跳過 Onboarding
-            ContentView()
+            if hasSeenOnboarding {
+                ContentView()
+            } else {
+                OnboardingView()
+            }
         }
     }
 }

@@ -12,10 +12,10 @@ import Combine
 
 // MARK: - 可用的 AI 模型清單
 enum VisionModelType: String, CaseIterable, Identifiable {
-    case standard = "(小）(可刪除）預設版 (門檻 0.25)"
-    case unsealed = "（小）(可刪除）解除封印版 (門檻 0.10)"
-    case unsealed_1 = "（小）解除封印版 (門檻 0.10)+1024IMG"
-    case unsealed_2 = "（大）解除封印版 (門檻 0.10)+1024IMG"
+    case standard = "Standard (Thresh 0.25)"
+    case unsealed = "Unsealed (Thresh 0.10)"
+    case unsealed_1 = "Unsealed 1024 (Thresh 0.10)"
+    case unsealed_2 = "Pro Vision 1024 (Thresh 0.10)"
     
     var id: String { self.rawValue }
 }

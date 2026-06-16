@@ -45,48 +45,74 @@ struct OnboardingView: View {
             Color(UIColor.systemGroupedBackground)
                 .ignoresSafeArea()
 
-            TabView(selection: $currentPage) {
-                ForEach(Array(pages.enumerated()), id: \.element.id) { index, page in
-                    VStack(spacing: 24) {
-                        Spacer()
-
-                        Image(systemName: page.icon)
-                            .font(.system(size: 80))
-                            .foregroundStyle(.tint)
-                            .accessibilityLabel(page.title)
-
-                        Text(page.title)
-                            .font(.largeTitle.bold())
-
-                        Text(page.subtitle)
-                            .font(.body)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 32)
-
-                        if index == pages.count - 1 {
-                            Button {
-                                hasSeenOnboarding = true
-                            } label: {
-                                Text("Get Started")
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .controlSize(.large)
-                            .buttonBorderShape(.capsule)
-                            .padding(.horizontal, 48)
-                            .padding(.top, 16)
-                            .accessibilityLabel("Get Started")
-                            .accessibilityHint("Dismisses onboarding and opens the app")
+            VStack(spacing: 0) {
+                // Top Action Bar (Skip)
+                HStack {
+                    Spacer()
+                    Button("Skip") {
+                        withAnimation {
+                            hasSeenOnboarding = true
                         }
-
-                        Spacer()
-                        Spacer()
                     }
-                    .tag(index)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .padding()
+                }
+
+                // Page Content
+                TabView(selection: $currentPage) {
+                    ForEach(Array(pages.enumerated()), id: \.element.id) { index, page in
+                        VStack(spacing: 24) {
+                            Spacer()
+
+                            Image(systemName: page.icon)
+                                .font(.system(size: 80))
+                                .foregroundStyle(.tint)
+                                .accessibilityLabel(page.title)
+
+                            Text(page.title)
+                                .font(.largeTitle.bold())
+                                .multilineTextAlignment(.center)
+
+                            Text(page.subtitle)
+                                .font(.body)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 32)
+
+                            Spacer()
+                        }
+                        .tag(index)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .always))
+                .indexViewStyle(.page(backgroundDisplayMode: .always)) // Makes dots visible
+
+                // Bottom Action Button
+                VStack {
+                    Button {
+                        if currentPage < pages.count - 1 {
+                            withAnimation {
+                                currentPage += 1
+                            }
+                        } else {
+                            withAnimation {
+                                hasSeenOnboarding = true
+                            }
+                        }
+                    } label: {
+                        Text(currentPage < pages.count - 1 ? "Next" : "Get Started")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .buttonBorderShape(.capsule)
+                    .padding(.horizontal, 32)
+                    .padding(.bottom, 32)
+                    .padding(.top, 16)
                 }
             }
-            .tabViewStyle(.page(indexDisplayMode: .always))
         }
     }
 }

@@ -166,8 +166,9 @@ class ContentViewModel: ObservableObject {
     }
     
     func generatePDFThumbnail(from url: URL) -> UIImage? {
-        guard url.startAccessingSecurityScopedResource() else { return nil }
-        defer { url.stopAccessingSecurityScopedResource() }
+        let isSecurityScoped = url.startAccessingSecurityScopedResource()
+        defer { if isSecurityScoped { url.stopAccessingSecurityScopedResource() } }
+        
         guard let document = PDFDocument(url: url), let page = document.page(at: 0) else { return nil }
         let pageRect = page.bounds(for: .mediaBox)
         let thumbnailWidth: CGFloat = 300

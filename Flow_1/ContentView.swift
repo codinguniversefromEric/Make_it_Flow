@@ -146,7 +146,7 @@ extension ContentView {
                     vm.pdfDocument = nil
                     vm.batchProcessor.cancel()
                 } label: {
-                    Label("關閉 Debug", systemImage: "xmark.circle.fill")
+                    Label("Close Debug", systemImage: "xmark.circle.fill")
                 }
                 .buttonStyle(.bordered)
                 .tint(.gray)
@@ -180,9 +180,9 @@ extension ContentView {
                         Image(systemName: "books.vertical.fill")
                             .font(.system(size: 72))
                             .foregroundColor(Color.secondary.opacity(0.3))
-                        Text("書庫空空如也")
+                        Text("Library is empty")
                             .font(.title2.weight(.bold))
-                        Text("請將 PDF 拖曳至畫面中\n或點擊右下角「＋」新增")
+                        Text("Drag & drop PDFs here\nor tap '+' to add")
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                             .lineSpacing(4)
@@ -222,7 +222,7 @@ extension ContentView {
                             )
                             .contextMenu {
                                 ShareLink(item: file.url) {
-                                    Label("分享 EPUB", systemImage: "square.and.arrow.up")
+                                    Label("Share EPUB", systemImage: "square.and.arrow.up")
                                 }
                                 Button(role: .destructive) {
                                     vm.libraryStore.deleteItem(file)
@@ -331,7 +331,7 @@ extension ContentView {
                                 Spacer()
                                 
                                 let percent = Int(round(vm.batchProcessor.progress * 100))
-                                Text(percent >= 100 ? "正在為您打包書本..." : "\(percent)%")
+                                Text(percent >= 100 ? "Finalizing EPUB..." : "\(percent)%")
                                     .font(.system(size: percent >= 100 ? 18 : 24, weight: .bold, design: .rounded))
                                     .foregroundColor(.primary)
                                     .padding(.horizontal, 16)
@@ -344,7 +344,7 @@ extension ContentView {
                                 Button(role: .destructive, action: {
                                     vm.cancelProcessing()
                                 }) {
-                                    Label("取消轉檔", systemImage: "xmark.circle.fill")
+                                    Label("Cancel", systemImage: "xmark.circle.fill")
                                         .font(.headline)
                                         .padding(.horizontal, 16)
                                         .padding(.vertical, 8)

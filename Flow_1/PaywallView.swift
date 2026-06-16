@@ -14,6 +14,7 @@ struct PaywallView: View {
     
     @State private var isPurchasing = false
     @State private var errorText: String?
+    @State private var showPolicy = false
     
     var body: some View {
         ScrollView {
@@ -87,10 +88,8 @@ struct PaywallView: View {
                     .accessibilityHint("Restore previously purchased subscriptions")
                     
                     HStack(spacing: 16) {
-                        // TODO: Replace with your actual Terms of Use URL before App Store submission
-                        Link("Terms of Use", destination: URL(string: "https://example.com/terms")!)
-                        // TODO: Replace with your actual Privacy Policy URL before App Store submission
-                        Link("Privacy Policy", destination: URL(string: "https://example.com/privacy")!)
+                        Button("Terms of Use") { showPolicy = true }
+                        Button("Privacy Policy") { showPolicy = true }
                     }
                     .font(.caption2)
                     .foregroundColor(.gray)
@@ -110,6 +109,9 @@ struct PaywallView: View {
         }
         .onChange(of: subscriptionManager.isPremium) { _, newValue in
             if newValue { dismiss() }
+        }
+        .sheet(isPresented: $showPolicy) {
+            PolicyView()
         }
     }
     
@@ -174,5 +176,56 @@ struct ProductRow: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(Color.accentColor.opacity(0.3), lineWidth: 1)
         )
+    }
+}
+
+// MARK: - App Policy View
+
+struct PolicyView: View {
+    @Environment(\.dismiss) var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    
+                    Group {
+                        Text("Privacy Policy")
+                            .font(.title2.bold())
+                        
+                        Text("1. Data Processing\nAll PDF documents are processed entirely on-device using Apple's Vision framework and CoreML. Your documents, extracted text, and generated EPUB files never leave your device unless explicitly shared or exported by you. We do not collect, store, or transmit your files to any external servers.")
+                        
+                        Text("2. Data Collection\nWe may collect anonymous crash reports and usage metrics to improve the app's performance. This data contains no personally identifiable information or document contents.")
+                        
+                        Text("3. Changes to This Policy\nWe may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page.")
+                    }
+                    .font(.body)
+                    
+                    Divider()
+                    
+                    Group {
+                        Text("Terms of Use")
+                            .font(.title2.bold())
+                        
+                        Text("1. Subscription Terms\nFlow offers premium subscriptions that unlock unlimited document conversions. Payment will be charged to your Apple ID account at the confirmation of purchase. Subscription automatically renews unless it is canceled at least 24 hours before the end of the current period.")
+                        
+                        Text("2. Acceptable Use\nYou agree not to use the app to process illegal, offensive, or copyrighted materials without authorization. The app is provided 'as is' without warranties of any kind.")
+                        
+                        Text("3. Limitation of Liability\nIn no event shall the developer be liable for any indirect, incidental, special, or consequential damages arising out of the use or inability to use the app.")
+                    }
+                    .font(.body)
+                }
+                .padding()
+            }
+            .navigationTitle("App Policy")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
     }
 }

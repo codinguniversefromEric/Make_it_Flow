@@ -26,7 +26,7 @@ class LLMEngine: ObservableObject {
 
     @Published var isModelLoaded = false
     @Published var isProcessing = false
-    @Published var statusMessage = "等待初始化..."
+    @Published var statusMessage = "Initializing..."
     @Published var downloadProgress: Double = 0.0
 
     /// 是否有 Apple Intelligence 可用 (runtime 檢測結果)
@@ -52,7 +52,7 @@ class LLMEngine: ObservableObject {
                 if model.availability == .available {
                     self.hasFoundationModels = true
                     self.isModelLoaded = true
-                    self.statusMessage = "Apple Intelligence 已就緒 (on-device)"
+                    self.statusMessage = "Apple Intelligence Ready (on-device)"
                     self.downloadProgress = 1.0
                     print("✅ Apple Intelligence 已就緒")
                 } else {
@@ -73,7 +73,7 @@ class LLMEngine: ObservableObject {
         DispatchQueue.main.async {
             self.hasFoundationModels = false
             self.isModelLoaded = true  // 純規則引擎永遠就緒
-            self.statusMessage = "原生修復引擎已就緒"
+            self.statusMessage = "Native Engine Ready"
             self.downloadProgress = 1.0
             print("✅ 原生規則引擎已啟用")
         }
@@ -84,7 +84,7 @@ class LLMEngine: ObservableObject {
     @MainActor
     func refineMarkdown(rawText: String) async -> String {
         self.isProcessing = true
-        self.statusMessage = "正在修復文字..."
+        self.statusMessage = "Refining text..."
 
         let result: String
         let engineName: String
@@ -110,7 +110,7 @@ class LLMEngine: ObservableObject {
         #endif
 
         print("✅ LLM 引擎: \(engineName) 完成 (輸出 \(result.count) 字元)")
-        self.statusMessage = hasFoundationModels ? "Apple Intelligence 已就緒 (on-device)" : "原生修復引擎已就緒"
+        self.statusMessage = hasFoundationModels ? "Apple Intelligence Ready (on-device)" : "Native Engine Ready"
         self.isProcessing = false
         return result
     }
