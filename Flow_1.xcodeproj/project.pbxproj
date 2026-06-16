@@ -459,6 +459,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				INFOPLIST_KEY_CFBundleDisplayName = "Make it Flow";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.xcode-demo.Flow-1";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -492,6 +493,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				INFOPLIST_KEY_CFBundleDisplayName = "Make it Flow";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.xcode-demo.Flow-1";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
