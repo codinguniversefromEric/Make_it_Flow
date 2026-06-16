@@ -11,7 +11,7 @@
 * **Apple Intelligence / Native LLM Refinement**: Seamlessly fixes broken line breaks, merged paragraphs, and OCR errors using a hybrid approach—leveraging on-device Apple Intelligence where available, or a highly optimized native heuristic engine as a fallback.
 * **EPUB Generation**: Outputs standard, clean EPUB files that are perfect for reading on Apple Books, Kindle, or your favorite e-reader.
 * **Home Library**: Keep track of all your converted books in a beautiful, grid-based library with generated thumbnails.
-* **StoreKit Paywall**: Includes a built-in paywall allowing users 3 free conversions before seamlessly upgrading to a Lifetime or Yearly Pro subscription.
+* **StoreKit Paywall**: Includes a built-in paywall allowing users 3 free conversions before seamlessly upgrading to a Lifetime or Bimonthly Pro subscription.
 
 ## 📱 Screenshots
 

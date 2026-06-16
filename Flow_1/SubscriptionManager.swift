@@ -14,7 +14,7 @@ class SubscriptionManager: ObservableObject {
     static let shared = SubscriptionManager()
     
     // MARK: - Product IDs
-    let yearlySubId = "com.flow.subscription.yearly"
+    let bimonthlySubId = "com.flow.subscription.bimonthly"
     let lifetimeId = "com.flow.lifetime"
     
     // MARK: - Published Properties
@@ -77,7 +77,7 @@ class SubscriptionManager: ObservableObject {
         defer { isFetchingProducts = false }
         
         do {
-            let storeProducts = try await Product.products(for: [yearlySubId, lifetimeId])
+            let storeProducts = try await Product.products(for: [bimonthlySubId, lifetimeId])
             // Sort by price so subscription usually comes first
             self.products = storeProducts.sorted(by: { $0.price < $1.price })
         } catch {
@@ -123,7 +123,7 @@ class SubscriptionManager: ObservableObject {
         }
         
         self.purchasedProductIDs = purchasedIDs
-        self.isPremium = purchasedIDs.contains(yearlySubId) || purchasedIDs.contains(lifetimeId)
+        self.isPremium = purchasedIDs.contains(bimonthlySubId) || purchasedIDs.contains(lifetimeId)
     }
     
     private func listenForTransactions() -> Task<Void, Never> {
