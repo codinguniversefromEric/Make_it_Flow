@@ -106,7 +106,11 @@ class ContentViewModel: ObservableObject {
                 await batchProcessor.exportDocument(doc, fileName: fileName)
                 
                 if batchProcessor.exportedFileURL == nil {
-                    withAnimation { animState = .idle }
+                    withAnimation { 
+                        animState = .idle 
+                        self.pdfDocument = nil
+                        self.currentThumbnail = nil
+                    }
                     if !batchProcessor.isCancelled {
                         errorMessage = "Conversion failed. Please try again."
                         showErrorAlert = true
@@ -114,7 +118,11 @@ class ContentViewModel: ObservableObject {
                     }
                 }
             } else {
-                withAnimation { animState = .idle }
+                withAnimation { 
+                    animState = .idle 
+                    self.pdfDocument = nil
+                    self.currentThumbnail = nil
+                }
                 errorMessage = "Unable to open PDF file. The file may be corrupted or password-protected."
                 showErrorAlert = true
                 UINotificationFeedbackGenerator().notificationOccurred(.error)

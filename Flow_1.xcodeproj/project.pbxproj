@@ -10,6 +10,7 @@
 		F256C0702FE055410074FFBC /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F256C06F2FE055410074FFBC /* WidgetKit.framework */; };
 		F256C0722FE055410074FFBC /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F256C0712FE055410074FFBC /* SwiftUI.framework */; };
 		F256C0832FE055420074FFBC /* FlowWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F256C06D2FE055410074FFBC /* FlowWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		F279C7A82FE18A6D00A87B21 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F279C7A72FE18A6D00A87B21 /* StoreKit.framework */; };
 		F2BB211A2FDEC025004C455C /* Ink in Frameworks */ = {isa = PBXBuildFile; productRef = F2BB21192FDEC025004C455C /* Ink */; };
 		F2BB211D2FDEC041004C455C /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = F2BB211C2FDEC041004C455C /* ZIPFoundation */; };
 /* End PBXBuildFile section */
@@ -43,6 +44,7 @@
 		F256C06F2FE055410074FFBC /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		F256C0712FE055410074FFBC /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		F279C6D82FE1432B00A87B21 /* Flow_1.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Flow_1.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F279C7A72FE18A6D00A87B21 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -93,6 +95,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F279C7A82FE18A6D00A87B21 /* StoreKit.framework in Frameworks */,
 				F2BB211A2FDEC025004C455C /* Ink in Frameworks */,
 				F2BB211D2FDEC041004C455C /* ZIPFoundation in Frameworks */,
 			);
@@ -104,6 +107,7 @@
 		F256C06E2FE055410074FFBC /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				F279C7A72FE18A6D00A87B21 /* StoreKit.framework */,
 				F256C06F2FE055410074FFBC /* WidgetKit.framework */,
 				F256C0712FE055410074FFBC /* SwiftUI.framework */,
 			);
@@ -449,6 +453,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Flow-1-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Make it Flow";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -459,7 +464,6 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				INFOPLIST_KEY_CFBundleDisplayName = "Make it Flow";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.xcode-demo.Flow-1";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -483,6 +487,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Flow-1-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Make it Flow";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -493,7 +498,6 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				INFOPLIST_KEY_CFBundleDisplayName = "Make it Flow";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.xcode-demo.Flow-1";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
