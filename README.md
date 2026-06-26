@@ -13,9 +13,11 @@
 * **Home Library**: Keep track of all your converted books in a beautiful, grid-based library with generated thumbnails.
 * **StoreKit Paywall**: Includes a built-in paywall allowing users 3 free conversions before seamlessly upgrading to a Lifetime or Yearly Pro subscription.
 
-## 📱 Screenshots
+## 📱 Demo
 
-*(Add your App Store screenshots here)*
+https://github.com/user-attachments/assets/96e65142-16ab-4966-ba22-0ead609a3662
+
+
 
 ## 🛠️ Tech Stack
 
@@ -38,7 +40,7 @@
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/yourusername/make-it-flow.git
+   https://github.com/codinguniversefromEric/Make_it_Flow.git
    ```
 2. Open `Flow_1.xcodeproj` in Xcode.
 3. Select your desired simulator or connected iOS device.
