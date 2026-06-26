@@ -69,9 +69,22 @@ The app comes with a local StoreKit configuration to test the paywall without ne
 Contributions, issues, and feature requests are welcome! 
 Feel free to check [issues page](#) if you want to contribute.
 
-## 📝 License
+## ⚖️ License & Third-Party Credits
 
-This project is open-source and available under the [MIT License](LICENSE).
+This project is open-source and licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. 
+
+### Third-Party Models & Framework Credits
+To power the on-device layout analysis, **Make it Flow** utilizes the following open-source components:
+1. **CoreML / YOLO Framework**: Powered by [Ultralytics YOLOv8](https://github.com), which is licensed under the AGPL-3.0.
+2. **Document Layout Model**: Uses the pre-trained weights from [vaivTA/yolov8n_doclaynet](https://huggingface.co) developed by **VAIV-TA-LAB**.
+3. **Document Structure Model**: Uses the pre-trained weights from [ashen007/document-structure-detection](https://huggingface.co) (`DSD-YOLOv8-v2.pt`).
+
+All specialized model weights mentioned above are fine-tuned on top of the Ultralytics YOLOv8 architecture, and this project's licensing strictly adheres to its copyleft requirements.
+
+### ⚠️ Trademark & Asset Notice
+While the source code and model architectures are freely available under the AGPL-3.0, the **"Make it Flow"** brand name, application icon, user interface (UI/UX) visual design, and related branding assets are the exclusive intellectual property of the author. 
+
+**You are NOT permitted** to use the "Make it Flow" name, logos, or original app icons to repackage, clone, or redistribute this application to the Apple App Store, Google Play Store, or any other commercial marketplace without explicit written permission.
 
 ---
 *Built with ❤️ for a better reading experience.*
