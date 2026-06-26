@@ -1,8 +1,9 @@
+
 # Make it Flow 🌊
 
 **Make it Flow** is a powerful, privacy-first iOS application that transforms any PDF document into a beautifully formatted, highly readable EPUB file. Built with a focus on on-device processing, it ensures your sensitive documents never leave your phone.
 
-![App Header](https://via.placeholder.com/1200x400.png?text=Make+it+Flow)
+<img width="1024" height="1024" alt="Untitled (Copy)" src="https://github.com/user-attachments/assets/673a3de1-06a7-4769-aa28-d3e541982040" />
 
 ## 🌟 Key Features
 
