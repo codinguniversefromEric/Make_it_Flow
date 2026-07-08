@@ -1,0 +1,62 @@
+{
+    "hf_sample_0.pdf": {
+        "time_seconds": 0.68,
+        "length_ratio": 1.019,
+        "normalized_edit_distance": 0.214,
+        "similarity": 0.397
+    },
+    "hf_sample_1.pdf": {
+        "time_seconds": 0.59,
+        "length_ratio": 0.979,
+        "normalized_edit_distance": 0.961,
+        "similarity": 0.692
+    },
+    "hf_sample_2.pdf": {
+        "time_seconds": 0.6,
+        "length_ratio": 1.049,
+        "normalized_edit_distance": 0.936,
+        "similarity": 0.354
+    },
+    "hf_sample_3.pdf": {
+        "time_seconds": 0.58,
+        "length_ratio": 0.912,
+        "normalized_edit_distance": 0.532,
+        "similarity": 0.605
+    },
+    "hf_sample_4.pdf": {
+        "time_seconds": 0.62,
+        "length_ratio": 1.02,
+        "normalized_edit_distance": 0.279,
+        "similarity": 0.463
+    },
+    "hf_sample_5.pdf": {
+        "time_seconds": 0.59,
+        "length_ratio": 0.779,
+        "normalized_edit_distance": 0.758,
+        "similarity": 0.86
+    },
+    "hf_sample_6.pdf": {
+        "time_seconds": 0.6,
+        "length_ratio": 1.082,
+        "normalized_edit_distance": 0.905,
+        "similarity": 0.89
+    },
+    "hf_sample_7.pdf": {
+        "time_seconds": 0.61,
+        "length_ratio": 1.014,
+        "normalized_edit_distance": 0.368,
+        "similarity": 0.452
+    },
+    "hf_sample_8.pdf": {
+        "time_seconds": 0.6,
+        "length_ratio": 0.7,
+        "normalized_edit_distance": 0.639,
+        "similarity": 0.764
+    },
+    "hf_sample_9.pdf": {
+        "time_seconds": 0.6,
+        "length_ratio": 1.015,
+        "normalized_edit_distance": 0.973,
+        "similarity": 0.983
+    }
+}
