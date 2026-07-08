@@ -79,6 +79,12 @@ class BatchProcessor: ObservableObject {
             var fullMarkdown = ""
             var pendingContinuation: String? = nil
             let activity = await MainActor.run { self.currentActivity }
+            
+            // 🌐 全域文件樣式分析
+            AppLogger.shared.info("開始進行全域樣式分析...")
+            let styleRegistry = StyleRegistry.analyze(document: document)
+            AppLogger.shared.info("全域分析完成: Body \(styleRegistry.bodyFontSize)pt, H1 \(styleRegistry.h1FontSize)pt, H2 \(styleRegistry.h2FontSize)pt")
+            
             for pageIndex in 0..<document.pageCount {
                 if await MainActor.run(resultType: Bool.self, body: { self.isCancelled }) {
                     AppLogger.shared.info("Processing cancelled by user.")
@@ -109,9 +115,8 @@ class BatchProcessor: ObservableObject {
 
                 let pageBounds = page.bounds(for: .cropBox)
 
-                // 🎯 模型感知的渲染倍率：1024 input 模型用 3x，其他用 2x
-                let currentModelType = LayoutVisionManager.shared.currentModelType
-                let scale: CGFloat = (currentModelType == .unsealed_1 || currentModelType == .unsealed_2) ? 3.0 : 2.0
+                // 🎯 模型感知的渲染倍率：統一使用 2x
+                let scale: CGFloat = 2.0
                 let scaledSize = CGSize(width: pageBounds.width * scale, height: pageBounds.height * scale)
                 
                 // 🛡️ 記憶體防護罩
@@ -188,6 +193,7 @@ class BatchProcessor: ObservableObject {
                 // ═══════════════════════════════════════════
 
                 var textFragments: [TextFragment] = []
+                var tableFragments: [Int: [TextFragment]] = [:]
 
                 if let selection = page.selection(for: pageBounds) {
                     for line in selection.selectionsByLine() {
@@ -200,13 +206,6 @@ class BatchProcessor: ObservableObject {
                             width: pRect.width * scale,
                             height: pRect.height * scale
                         )
-
-                        // 🔍 排除落在視覺區域 (圖片/表格) 內的文字行
-                        let lineMid = CGPoint(x: displayRect.midX, y: displayRect.midY)
-                        let insideVisual = visualRegions.contains { region in
-                            region.rect.contains(lineMid)
-                        }
-                        if insideVisual { continue }
 
                         // 📝 嘗試從 attributedString 擷取字體資訊
                         var fontSize: CGFloat = 12.0
@@ -222,12 +221,28 @@ class BatchProcessor: ObservableObject {
                             }
                         }
 
-                        textFragments.append(TextFragment(
+                        let fragment = TextFragment(
                             text: lineText,
                             bounds: displayRect,
-                            fontSize: fontSize * scale,  // 轉換為顯示座標系的字體大小
+                            fontSize: fontSize * scale,
                             isBold: isBold
-                        ))
+                        )
+
+                        // 🔍 排除落在視覺區域 (圖片/表格) 內的文字行，但保留表格內的碎片用於結構重建
+                        let lineMid = CGPoint(x: displayRect.midX, y: displayRect.midY)
+                        var handledByVisualRegion = false
+                        for (index, region) in visualRegions.enumerated() {
+                            if region.rect.contains(lineMid) {
+                                if region.label == "Table" {
+                                    tableFragments[index, default: []].append(fragment)
+                                }
+                                handledByVisualRegion = true
+                                break
+                            }
+                        }
+                        if handledByVisualRegion { continue }
+
+                        textFragments.append(fragment)
                     }
                 }
 
@@ -247,7 +262,7 @@ class BatchProcessor: ObservableObject {
                 // STAGE 4: 語意分類 → 頁眉/頁腳/頁碼自動丟棄
                 // ═══════════════════════════════════════════
 
-                SemanticClassifier.classify(blocks: &paragraphs, pageHeight: scaledSize.height)
+                SemanticClassifier.classify(blocks: &paragraphs, pageHeight: scaledSize.height, styleRegistry: styleRegistry)
 
                 // 🎯 YOLO 輔助標題偵測：如果段落與 YOLO Section-header 重疊，強制分類為 heading
                 // 這是當 PDFKit 無法提供字型資訊時的救命稻草
@@ -274,47 +289,95 @@ class BatchProcessor: ObservableObject {
                 print("🏠 第 \(pageIndex + 1) 頁 分類: \(paragraphs.count) 段落 [​\(roleBreakdown)]")
 
                 // ═══════════════════════════════════════════
-                // STAGE 5: 組裝 Markdown
+                // STAGE 5: 跨頁續接與分段修剪
+                // ═══════════════════════════════════════════
+
+                // 1. 處理上一頁遺留的未完成段落
+                if let continuation = pendingContinuation {
+                    if let firstValidIdx = paragraphs.firstIndex(where: { !SemanticClassifier.shouldDrop($0.role) }) {
+                        if paragraphs[firstValidIdx].role == .body {
+                            let nextText = paragraphs[firstValidIdx].unifiedText
+                            var mergedText = ""
+                            
+                            if continuation.hasSuffix("-") {
+                                let cleanContinuation = String(continuation.dropLast())
+                                if let firstChar = nextText.first, firstChar.isLowercase {
+                                    mergedText = cleanContinuation + nextText
+                                } else {
+                                    mergedText = cleanContinuation + " " + nextText
+                                }
+                            } else {
+                                mergedText = continuation + " " + nextText
+                            }
+                            paragraphs[firstValidIdx].unifiedText = mergedText
+                            pendingContinuation = nil
+                        } else {
+                            // 第一個段落是標題等，將前一頁的結尾獨立為新段落
+                            let contBlock = ParagraphBlock(fragments: [], role: .body, unifiedText: continuation, bounds: .zero)
+                            paragraphs.insert(contBlock, at: firstValidIdx)
+                            pendingContinuation = nil
+                        }
+                    } else {
+                        // 這一頁沒有有效段落，暫且保留 continuation (或直接丟棄)
+                    }
+                }
+
+                // 2. 擷取這一頁最後一個可能未完成的段落
+                if let lastValidIdx = paragraphs.lastIndex(where: { !SemanticClassifier.shouldDrop($0.role) }),
+                   paragraphs[lastValidIdx].role == .body {
+                    let trimmed = paragraphs[lastValidIdx].unifiedText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let endsWithTerminator = trimmed.hasSuffix(".") || trimmed.hasSuffix("。") ||
+                                             trimmed.hasSuffix("!") || trimmed.hasSuffix("！") ||
+                                             trimmed.hasSuffix("?") || trimmed.hasSuffix("？") ||
+                                             trimmed.hasSuffix(":") || trimmed.hasSuffix("：")
+                    // 防呆：如果是極短行，或是列表項，就不視為待續接
+                    if !endsWithTerminator && trimmed.count > 20 {
+                        pendingContinuation = trimmed
+                        paragraphs.remove(at: lastValidIdx)
+                    }
+                }
+
+                // ═══════════════════════════════════════════
+                // STAGE 6: 組裝 Markdown 與智慧分章
                 // ═══════════════════════════════════════════
 
                 var pageMD = ""
                 var rawTextForLLM = ""
 
-                // 📖 跨頁段落續接：如果上一頁有未完成的段落，接到這頁第一個 body 段落前面
-                if let continuation = pendingContinuation {
-                    if let firstBodyIdx = paragraphs.firstIndex(where: { $0.role == .body }) {
-                        paragraphs[firstBodyIdx].unifiedText = continuation + " " + paragraphs[firstBodyIdx].unifiedText
-                    }
-                    pendingContinuation = nil
-                }
-
                 // 視覺區域 → 圖片裁切 (按 Y 位置排序)
-                let sortedVisuals = visualRegions.sorted { $0.rect.minY < $1.rect.minY }
-                for (index, region) in sortedVisuals.enumerated() {
-                    let fileName = "page_\(pageIndex + 1)_item_\(index)"
-                    if let _ = PDFImageExtractor.cropAndSaveImage(from: validRawImage, cropRect: region.rect, imageName: fileName, assetsURL: assetsDir) {
-                        let prefix = region.label == "Table" ? "表格" : "圖表/圖片"
-                        pageMD += "\n![\(prefix)：\(fileName)](assets/\(fileName).jpg)\n\n"
+                let sortedVisuals = zip(visualRegions.indices, visualRegions).sorted { $0.1.rect.minY < $1.1.rect.minY }
+                for (indexInPage, (originalIndex, region)) in sortedVisuals.enumerated() {
+                    let fileName = "page_\(pageIndex + 1)_item_\(indexInPage)"
+                    
+                    var tableReconstructed = false
+                    if region.label == "Table", let frags = tableFragments[originalIndex] {
+                        if let markdownTable = TableReconstructor.reconstruct(fragments: frags, tableBounds: region.rect) {
+                            pageMD += "\n" + markdownTable + "\n\n"
+                            tableReconstructed = true
+                        }
+                    }
+                    
+                    if !tableReconstructed {
+                        if let _ = PDFImageExtractor.cropAndSaveImage(from: validRawImage, cropRect: region.rect, imageName: fileName, assetsURL: assetsDir) {
+                            let prefix = region.label == "Table" ? "表格" : "圖表/圖片"
+                            pageMD += "\n![\(prefix)：\(fileName)](assets/\(fileName).jpg)\n\n"
+                        }
                     }
                 }
 
                 // 文字段落 → Markdown
                 for block in paragraphs {
-                    // 丟棄頁面假象
                     if SemanticClassifier.shouldDrop(block.role) { continue }
 
-                    // 📖 擷取文件標題：如果 PDF 元資料沒有標題，使用第一個 .title 區塊
+                    // 📖 擷取文件標題
                     if block.role == .title {
                         let titleText = block.unifiedText.trimmingCharacters(in: .whitespacesAndNewlines)
                         if detectedTitle == nil {
-                            // 首次偵測到標題 → 記錄為書名，不重複輸出到正文
                             detectedTitle = titleText
                             continue
                         } else if detectedTitle == titleText {
-                            // 與已知書名相同 → 跳過 (防止 PDF metadata 與內文重複)
                             continue
                         }
-                        // 不同的 .title → 降級為 heading 輸出
                     }
 
                     let md = SemanticClassifier.toMarkdown(block: block)
@@ -323,7 +386,6 @@ class BatchProcessor: ObservableObject {
                     }
                 }
 
-                // 🧠 核心分流：決定文字處理路線
                 if !rawTextForLLM.isEmpty {
                     if AppSettings.shared.useAI {
                         print("🧠 第 \(pageIndex + 1) 頁 → AI 修復中... (\(rawTextForLLM.count) 字元)")
@@ -335,27 +397,24 @@ class BatchProcessor: ObservableObject {
                     }
                 }
 
-                // 📖 跨頁續接偵測：最後一個 body 段落是否未完結
-                if let lastBody = paragraphs.last(where: { $0.role == .body }) {
-                    let trimmed = lastBody.unifiedText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    let endsWithTerminator = trimmed.hasSuffix(".") || trimmed.hasSuffix("。") ||
-                                             trimmed.hasSuffix("!") || trimmed.hasSuffix("！") ||
-                                             trimmed.hasSuffix("?") || trimmed.hasSuffix("？") ||
-                                             trimmed.hasSuffix(":") || trimmed.hasSuffix("：")
-                    if !endsWithTerminator && trimmed.count > 20 {
-                        pendingContinuation = trimmed
-                        // 從 pageMD 中移除最後一個段落 (因為它會被接到下一頁)
-                        // 簡易做法：保留，讓下一頁的開頭接上
-                    }
-                }
-
                 // 📖 智慧分章
                 if pageIndex > 0 {
-                    if let firstBlock = paragraphs.first, firstBlock.role == .title || firstBlock.role == .heading {
-                        if firstBlock.bounds.minY < 100 * scale {
+                    if let firstBlock = paragraphs.first(where: { !SemanticClassifier.shouldDrop($0.role) }),
+                       firstBlock.role == .title || firstBlock.role == .heading {
+                        
+                        let text = firstBlock.unifiedText.lowercased()
+                        let isChapterRegex = text.contains("chapter") || text.contains("第")
+                        let isH1 = (firstBlock.fragments.first?.fontSize ?? 0) >= styleRegistry.h1FontSize * 0.95
+                        
+                        // 根據角色、正規表示式、或字體大小判定是否為章節起點
+                        if firstBlock.role == .title || isChapterRegex || isH1 {
+                            fullMarkdown += "<CHAPTER_SPLIT>\n\n"
+                        } else if firstBlock.bounds.minY < 100 * scale {
+                            // 備用：位於頁面最頂端的 heading 也可能是一個章節
                             fullMarkdown += "<CHAPTER_SPLIT>\n\n"
                         }
-                    } else if pageIndex % 10 == 0 {
+                    } else if pageIndex % 15 == 0 {
+                        // 備用防呆
                         fullMarkdown += "<CHAPTER_SPLIT>\n\n"
                     }
                 }

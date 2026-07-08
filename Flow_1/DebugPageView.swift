@@ -186,7 +186,8 @@ struct DebugPageView: View {
             )
             
             // SemanticClassifier → 語意分類
-            SemanticClassifier.classify(blocks: &paragraphs, pageHeight: scaledSize.height)
+            let styleRegistry = StyleRegistry.analyze(document: document)
+            SemanticClassifier.classify(blocks: &paragraphs, pageHeight: scaledSize.height, styleRegistry: styleRegistry)
             
             // ═══════════════════════════════════════
             // 繪製除錯視覺化圖層

@@ -12,11 +12,8 @@ import Combine
 
 // MARK: - 可用的 AI 模型清單
 enum VisionModelType: String, CaseIterable, Identifiable {
-    case standard = "Standard (Thresh 0.25)"
-    case unsealed = "Unsealed (Thresh 0.10)"
-    case unsealed_1 = "Unsealed 1024 (Thresh 0.10)"
-    case unsealed_2 = "Pro Vision 1024 (Thresh 0.10)"
-    
+    case standard = "Standard (Thresh 0.1)"
+
     var id: String { self.rawValue }
 }
 
@@ -41,13 +38,7 @@ class LayoutVisionManager: ObservableObject {
             
             switch type {
             case .standard:
-                coreMLModel = try best(configuration: config).model
-            case .unsealed:
                 coreMLModel = try best_conf0_1(configuration: config).model
-            case .unsealed_1:
-                coreMLModel = try best_imgsize1024(configuration: config).model
-            case .unsealed_2:
-                coreMLModel = try best_137MB(configuration: config).model
             }
             
             let newModel = try VNCoreMLModel(for: coreMLModel)

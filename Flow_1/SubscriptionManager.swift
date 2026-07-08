@@ -13,6 +13,16 @@ import Combine
 class SubscriptionManager: ObservableObject {
     static let shared = SubscriptionManager()
     
+    // MARK: - 開發者外掛插口
+    static func shouldBypassPayment() -> Bool {
+        var requirePayment = false
+        
+        // 💡 只要把下面這行「註解掉」 (在開頭加上 //)，App 就會直接解鎖全部功能，沒有付費牆。
+//        requirePayment = true
+        
+        return !requirePayment
+    }
+    
     // MARK: - Product IDs
     let yearlySubId = "com.flow.subscription.yearly"
     let lifetimeId = "com.flow.lifetime"
@@ -21,7 +31,7 @@ class SubscriptionManager: ObservableObject {
     @Published var products: [Product] = []
     @Published var purchasedProductIDs: Set<String> = []
     
-    @Published var isPremium: Bool = false
+    @Published var isPremium: Bool = SubscriptionManager.shouldBypassPayment()
     @Published var isFetchingProducts = false
     
     // MARK: - Freemium Quota
@@ -111,6 +121,12 @@ class SubscriptionManager: ObservableObject {
     }
     
     private func updatePurchasedStatus() async {
+        if SubscriptionManager.shouldBypassPayment() {
+            self.purchasedProductIDs = [yearlySubId, lifetimeId]
+            self.isPremium = true
+            return
+        }
+        
         var purchasedIDs: Set<String> = []
         
         // Iterate through all current entitlements

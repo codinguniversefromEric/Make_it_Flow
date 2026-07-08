@@ -143,28 +143,60 @@ enum LayoutEngine {
         var blocks: [ParagraphBlock] = []
         var currentFrags: [TextFragment] = [sorted[0]]
 
+        let columnMinX = sorted.map { $0.bounds.minX }.min() ?? 0
+        let columnMaxX = sorted.map { $0.bounds.maxX }.max() ?? 0
+        let columnWidth = max(columnMaxX - columnMinX, 1.0)
+        let columnMidX = columnMinX + columnWidth / 2.0
+
         for i in 1..<sorted.count {
             let prev = sorted[i - 1]
             let curr = sorted[i]
             let gap = curr.bounds.minY - prev.bounds.maxY
 
-            // 判斷是否需要斷開新段落
+            let prevSize = prev.fontSize
+            let currSize = curr.fontSize
+            let isSameFont = abs(prevSize - currSize) < 1.0 && prev.isBold == curr.isBold
+            
+            // 計算水平重疊率
+            let overlapMinX = max(prev.bounds.minX, curr.bounds.minX)
+            let overlapMaxX = min(prev.bounds.maxX, curr.bounds.maxX)
+            let overlap = max(0, overlapMaxX - overlapMinX)
+            let minWidth = min(prev.bounds.width, curr.bounds.width)
+            let overlapRatio = minWidth > 0 ? overlap / minWidth : 0
+            
+            // 短行判斷
+            let prevIsShort = prev.bounds.width < columnWidth * 0.8
+            let currIsShort = curr.bounds.width < columnWidth * 0.8
+            
+            // 置中判斷
+            let prevIsCentered = prevIsShort && abs(prev.bounds.midX - columnMidX) < columnWidth * 0.15
+            let currIsCentered = currIsShort && abs(curr.bounds.midX - columnMidX) < columnWidth * 0.15
+            
             var shouldBreak = false
 
-            // 條件 1：間距超過 1.8 倍中位數
+            // 特徵 1：短行結尾偵測 (上一行是短行且非置中，通常代表段落結束)
+            let prevRightMargin = columnMaxX - prev.bounds.maxX
+            if prevIsShort && !prevIsCentered && prevRightMargin > columnWidth * 0.15 {
+                shouldBreak = true
+            }
+            
+            // 特徵 2：置中短行偵測 (當前行或上一行是置中短行，通常是獨立標題)
+            if prevIsCentered || currIsCentered {
+                shouldBreak = true
+            }
+
+            // 特徵 3：間距超過 1.8 倍中位數
             if gap > paragraphBreakThreshold {
                 shouldBreak = true
             }
 
-            // 條件 1.5：首行縮排 (X 座標向右縮進超過 1.5 倍字體大小)
+            // 特徵 4：首行縮排 (X 座標向右縮進超過 1.5 倍字體大小)
             let xOffset = curr.bounds.minX - prev.bounds.minX
             if gap >= 0 && xOffset > (curr.fontSize * 1.5) {
                 shouldBreak = true
             }
 
-            // 條件 2：字體大小變化超過 30%
-            let prevSize = prev.fontSize
-            let currSize = curr.fontSize
+            // 特徵 5：字體大小變化超過 30%
             if prevSize > 0 && currSize > 0 {
                 let sizeRatio = max(prevSize, currSize) / min(prevSize, currSize)
                 if sizeRatio > 1.3 {
@@ -172,11 +204,19 @@ enum LayoutEngine {
                 }
             }
 
-            // 條件 3：粗體狀態變化 + 輕微大小變化 (標題轉換)
+            // 特徵 6：粗體狀態變化 + 輕微大小變化 (標題轉換)
             if prev.isBold != curr.isBold && prevSize > 0 && currSize > 0 {
                 let sizeRatio = max(prevSize, currSize) / min(prevSize, currSize)
                 if sizeRatio > 1.15 {
                     shouldBreak = true
+                }
+            }
+            
+            // 特徵 7：字型連續性與水平重疊率強制合併 (推翻弱斷行條件)
+            if isSameFont && overlapRatio > 0.5 && gap < paragraphBreakThreshold * 1.5 {
+                // 若非明顯首行縮排或置中標題，則強制合併
+                if xOffset < (curr.fontSize * 3.0) && !prevIsCentered && !currIsCentered {
+                    shouldBreak = false
                 }
             }
 
@@ -232,54 +272,134 @@ enum LayoutEngine {
         pageWidth: CGFloat,
         pageHeight: CGFloat
     ) -> [ParagraphBlock] {
-        let fullWidthThreshold = pageWidth * 0.6
-        var fullWidthFrags: [TextFragment] = []
-        var normalFrags: [TextFragment] = []
+        guard !fragments.isEmpty else { return [] }
         
-        for frag in fragments {
-            if frag.bounds.width > fullWidthThreshold {
-                fullWidthFrags.append(frag)
+        // 1. 垂直區域分割 (Region Segmentation)
+        // 將 fragments 按 Y 排序，找出大垂直間隙或版面改變處切分區域
+        let sortedFrags = fragments.sorted { $0.bounds.minY < $1.bounds.minY }
+        var regions: [[TextFragment]] = []
+        var currentRegion: [TextFragment] = [sortedFrags[0]]
+        var currentMaxY = sortedFrags[0].bounds.maxY
+        
+        for i in 1..<sortedFrags.count {
+            let curr = sortedFrags[i]
+            let gap = curr.bounds.minY - currentMaxY
+            
+            let isCurrFullWidth = curr.bounds.width > pageWidth * 0.6
+            let isPrevFullWidth = sortedFrags[i-1].bounds.width > pageWidth * 0.6
+            
+            // 當遇到大間距 (>20pt)，或從全寬切換至多欄位時(gap>5pt容錯)，斷開區域
+            if gap > 20.0 || (isCurrFullWidth != isPrevFullWidth && gap > 5.0) {
+                regions.append(currentRegion)
+                currentRegion = [curr]
+                currentMaxY = curr.bounds.maxY
             } else {
-                normalFrags.append(frag)
+                currentRegion.append(curr)
+                currentMaxY = max(currentMaxY, curr.bounds.maxY)
             }
         }
-        
-        // 1. 將全寬元素聚合成區塊 (如大標題、跨欄圖表)，並按垂直位置排序
-        let fullWidthBlocks = groupIntoParagraphs(fragments: fullWidthFrags, pageHeight: pageHeight)
-            .sorted { $0.bounds.midY < $1.bounds.midY }
-            
-        // 2. 建立水平分割點 (使用每個全寬區塊的 midY 作為分界)
-        let dividers = fullWidthBlocks.map { $0.bounds.midY }
+        if !currentRegion.isEmpty {
+            regions.append(currentRegion)
+        }
         
         var allBlocks: [ParagraphBlock] = []
         
-        // 3. 針對每個被全寬元素切分出來的水平區間 (共有 dividers.count + 1 個區間)
-        for i in 0...dividers.count {
-            let minY = (i == 0) ? -CGFloat.greatestFiniteMagnitude : dividers[i - 1]
-            let maxY = (i == dividers.count) ? CGFloat.greatestFiniteMagnitude : dividers[i]
-            
-            // 取出落在此區間的正常碎片
-            let regionFrags = normalFrags.filter { frag in
-                let y = frag.bounds.midY
-                return y >= minY && y < maxY
+        // 2. 對每個區域獨立分欄並重組段落
+        for regionFrags in regions {
+            var regionBlocks: [ParagraphBlock] = []
+            let columns = detectColumns(fragments: regionFrags, pageWidth: pageWidth, pageHeight: pageHeight)
+            for column in columns {
+                let paragraphs = groupIntoParagraphs(fragments: column.fragments, pageHeight: pageHeight)
+                regionBlocks.append(contentsOf: paragraphs)
             }
             
-            if !regionFrags.isEmpty {
-                // 對此區間內的碎片進行分欄與段落重組
-                let columns = detectColumns(fragments: regionFrags, pageWidth: pageWidth, pageHeight: pageHeight)
-                for column in columns {
-                    let paragraphs = groupIntoParagraphs(fragments: column.fragments, pageHeight: pageHeight)
-                    allBlocks.append(contentsOf: paragraphs)
-                }
-            }
-            
-            // 區間處理結束後，接上對應的那個全寬區塊 (維持正確的閱讀順序)
-            if i < fullWidthBlocks.count {
-                allBlocks.append(fullWidthBlocks[i])
-            }
+            // 3. 對區域內的段落進行拓撲排序閱讀順序
+            let sortedRegionBlocks = sortBlocksTopologically(regionBlocks)
+            allBlocks.append(contentsOf: sortedRegionBlocks)
         }
         
         return allBlocks
+    }
+
+    // MARK: - 5. 拓撲排序閱讀順序
+    
+    /// 將多個段落區塊轉換為有向圖，透過 Kahn 演算法計算閱讀順序
+    static func sortBlocksTopologically(_ blocks: [ParagraphBlock]) -> [ParagraphBlock] {
+        guard blocks.count > 1 else { return blocks }
+        
+        var adj = [Int: [Int]]()
+        var inDegree = [Int: Int]()
+        for i in 0..<blocks.count {
+            adj[i] = []
+            inDegree[i] = 0
+        }
+        
+        for i in 0..<blocks.count {
+            for j in 0..<blocks.count where i != j {
+                let a = blocks[i].bounds
+                let b = blocks[j].bounds
+                
+                var isA_Before_B = false
+                
+                // 條件 1: A 完全在 B 的上方且有水平重疊 (同欄上下關係)
+                if a.maxY <= b.minY + 5.0 {
+                    let overlapMinX = max(a.minX, b.minX)
+                    let overlapMaxX = min(a.maxX, b.maxX)
+                    if overlapMaxX > overlapMinX {
+                        isA_Before_B = true
+                    }
+                }
+                
+                // 條件 2: A 在 B 的左方且有垂直重疊 (跨欄左右關係)
+                if a.maxX <= b.minX + 5.0 {
+                    let overlapMinY = max(a.minY, b.minY)
+                    let overlapMaxY = min(a.maxY, b.maxY)
+                    let minHeight = min(a.height, b.height)
+                    if (overlapMaxY - overlapMinY) > minHeight * 0.3 {
+                        isA_Before_B = true
+                    }
+                }
+                
+                if isA_Before_B {
+                    adj[i]?.append(j)
+                    inDegree[j, default: 0] += 1
+                }
+            }
+        }
+        
+        var queue = [Int]()
+        for i in 0..<blocks.count {
+            if inDegree[i] == 0 { queue.append(i) }
+        }
+        
+        var sortedIndices = [Int]()
+        while !queue.isEmpty {
+            // 佇列排序：無依賴的區塊中，優先選左上方的
+            queue.sort { 
+                let b1 = blocks[$0].bounds
+                let b2 = blocks[$1].bounds
+                if abs(b1.minX - b2.minX) > 20 { return b1.minX < b2.minX }
+                return b1.minY < b2.minY
+            }
+            
+            let curr = queue.removeFirst()
+            sortedIndices.append(curr)
+            
+            for neighbor in adj[curr] ?? [] {
+                inDegree[neighbor, default: 0] -= 1
+                if inDegree[neighbor] == 0 { queue.append(neighbor) }
+            }
+        }
+        
+        // 若有環（例如極度不規則版面），退回單純的幾何排序
+        if sortedIndices.count != blocks.count {
+            return blocks.sorted { 
+                if abs($0.bounds.minY - $1.bounds.minY) > 20 { return $0.bounds.minY < $1.bounds.minY }
+                return $0.bounds.minX < $1.bounds.minX
+            }
+        }
+        
+        return sortedIndices.map { blocks[$0] }
     }
 
     // MARK: - Private Helpers
