@@ -15,6 +15,8 @@ enum AnimationState {
 // MARK: - 主畫面整合
 struct ContentView: View {
     @StateObject private var vm = ContentViewModel()
+    @State private var isEditing = false
+    @State private var selectedItems = Set<UUID>()
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -29,9 +31,21 @@ struct ContentView: View {
                     mainContentView
                         .toolbar {
                             ToolbarItem(placement: .topBarLeading) {
-                                Button { vm.isSettingsPresented = true } label: { Label("Preferences", systemImage: "slider.horizontal.3") }
-                                    .accessibilityLabel("Settings")
-                                    .accessibilityHint("Open app preferences")
+                                if isEditing {
+                                    Button {
+                                        if selectedItems.count == vm.libraryStore.items.count && !vm.libraryStore.items.isEmpty {
+                                            selectedItems.removeAll()
+                                        } else {
+                                            selectedItems = Set(vm.libraryStore.items.map { $0.id })
+                                        }
+                                    } label: {
+                                        Text(selectedItems.count == vm.libraryStore.items.count && !vm.libraryStore.items.isEmpty ? "Deselect All" : "Select All")
+                                    }
+                                } else {
+                                    Button { vm.isSettingsPresented = true } label: { Label("Preferences", systemImage: "slider.horizontal.3") }
+                                        .accessibilityLabel("Settings")
+                                        .accessibilityHint("Open app preferences")
+                                }
                             }
                             ToolbarItem(placement: .principal) {
                                 Text("flow")
@@ -40,12 +54,25 @@ struct ContentView: View {
                                     .foregroundColor(.primary)
                             }
                             ToolbarItemGroup(placement: .topBarTrailing) {
-                                Button(action: { vm.showFilePicker = true }) {
-                                    Image(systemName: "plus")
-                                        .font(.headline)
+                                Button {
+                                    withAnimation {
+                                        isEditing.toggle()
+                                        if !isEditing {
+                                            selectedItems.removeAll()
+                                        }
+                                    }
+                                } label: {
+                                    Text(isEditing ? "Done" : "Edit")
+                                        .fontWeight(.medium)
                                 }
-                                .accessibilityLabel("Add PDF")
-                                .accessibilityHint("Open file picker to select a PDF for conversion")
+                                if !isEditing {
+                                    Button(action: { vm.showFilePicker = true }) {
+                                        Image(systemName: "plus")
+                                            .font(.headline)
+                                    }
+                                    .accessibilityLabel("Add PDF")
+                                    .accessibilityHint("Open file picker to select a PDF for conversion")
+                                }
                             }
                         }
                         .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
@@ -234,10 +261,35 @@ extension ContentView {
                             .cornerRadius(16)
                             .shadow(color: .black.opacity(0.08), radius: 10, y: 4)
                             .overlay(
-                                ShareLink(item: file.url) {
-                                    Color.clear
+                                Group {
+                                    if !isEditing {
+                                        ShareLink(item: file.url) {
+                                            Color.clear
+                                        }
+                                    }
                                 }
                             )
+                            .overlay(alignment: .bottomTrailing) {
+                                if isEditing {
+                                    Image(systemName: selectedItems.contains(file.id) ? "checkmark.circle.fill" : "circle")
+                                        .font(.system(size: 24))
+                                        .foregroundColor(selectedItems.contains(file.id) ? .blue : .gray.opacity(0.5))
+                                        .background(Circle().fill(Color.white))
+                                        .offset(x: -12, y: -12)
+                                        .transition(.scale.combined(with: .opacity))
+                                }
+                            }
+                            .onTapGesture {
+                                if isEditing {
+                                    withAnimation(.easeInOut(duration: 0.1)) {
+                                        if selectedItems.contains(file.id) {
+                                            selectedItems.remove(file.id)
+                                        } else {
+                                            selectedItems.insert(file.id)
+                                        }
+                                    }
+                                }
+                            }
                             .contextMenu {
                                 ShareLink(item: file.url) {
                                     Label("Share EPUB", systemImage: "square.and.arrow.up")
@@ -257,6 +309,32 @@ extension ContentView {
                 }
             }
             .scrollIndicators(.hidden)
+            .safeAreaInset(edge: .bottom) {
+                if isEditing {
+                    VStack(spacing: 0) {
+                        Divider()
+                        Button(role: .destructive) {
+                            withAnimation {
+                                let itemsToDelete = vm.libraryStore.items.filter { selectedItems.contains($0.id) }
+                                for item in itemsToDelete {
+                                    vm.libraryStore.deleteItem(item)
+                                }
+                                selectedItems.removeAll()
+                                isEditing = false
+                            }
+                        } label: {
+                            Text("Delete Selected (\(selectedItems.count))")
+                                .font(.headline)
+                                .foregroundColor(selectedItems.isEmpty ? .gray : .red)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                        }
+                        .disabled(selectedItems.isEmpty)
+                        .background(.ultraThinMaterial)
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
             
             // 全域拖曳高亮遮罩
             if vm.dragOver {
@@ -317,7 +395,7 @@ extension ContentView {
                                 Spacer()
                                 
                                 let percent = Int(round(vm.batchProcessor.progress * 100))
-                                Text(percent >= 100 ? "Finalizing EPUB..." : "\(percent)%")
+                                Text(percent >= 100 ? "EPUB is ready" : "\(percent)%")
                                     .font(.system(size: percent >= 100 ? 18 : 24, weight: .bold, design: .rounded))
                                     .foregroundColor(.primary)
                                     .padding(.horizontal, 16)
