@@ -7,8 +7,9 @@
 
 import Foundation
 import CoreGraphics
+import Vision
 
-// MARK: - 佈局分析引擎：欄位偵測 + 段落重組 + 斷字修復
+// MARK: - 佈局分析引擎：基於 YOLO 區塊的語意重組與幾何排序
 
 enum LayoutEngine {
 
@@ -16,13 +17,174 @@ enum LayoutEngine {
     private static let eqRegex = try! NSRegularExpression(pattern: "(?i)(Accuracy|Precision|Sensitivity|score|Recall|Specificity)\\s*\u{FFFD}\\s*")
     private static let mulRegex = try! NSRegularExpression(pattern: "([0-9A-Za-z])\\s*\u{FFFD}\\s*([0-9A-Za-z])")
 
-    // MARK: - 1. 水平密度直方圖 → 欄位偵測
+    // MARK: - 1. 基於 LayoutBlock 的核心處理流程
 
-    /// 從文字碎片的水平分佈偵測欄位邊界
+    /// 使用 YOLO 給出的區塊，將 PDFKit 散落的文字碎片重新排序與封裝
     /// - Parameters:
-    ///   - fragments: 頁面上所有的文字碎片
-    ///   - pageWidth: 頁面寬度 (顯示座標系)
-    /// - Returns: 偵測到的欄位區域陣列 (從左到右排序)
+    ///   - fragments: PDFKit 萃取的底層文字碎片
+    ///   - blocks: YOLO 偵測出的佈局區塊 (LayoutBlock)
+    ///   - pageWidth: 頁面寬度
+    ///   - pageHeight: 頁面高度
+    /// - Returns: 依人類閱讀順序排序好的完美段落
+
+    static func processWithLayoutBlocks(
+        fragments: [TextFragment],
+        blocks: [LayoutBlock],
+        pageWidth: CGFloat,
+        pageHeight: CGFloat
+    ) -> [ParagraphBlock] {
+        guard !fragments.isEmpty else { return [] }
+        guard !blocks.isEmpty else {
+            // Fallback: 如果 YOLO 完全沒偵測到任何區塊，退回舊版純幾何演算法
+            return processPage(fragments: fragments, pageWidth: pageWidth, pageHeight: pageHeight)
+        }
+
+        // 1. 幾何排序 YOLO 區塊 (Reading Order Algorithm)
+        let sortedBlocks = sortLayoutBlocks(blocks, pageWidth: pageWidth, pageHeight: pageHeight)
+
+        // 2. 將文字碎片分配到排序好的 YOLO 區塊中
+        var blockFragmentsMap: [UUID: [TextFragment]] = [:]
+        var unassignedFragments: [TextFragment] = []
+        
+        for frag in fragments {
+            let fragMid = CGPoint(x: frag.bounds.midX, y: frag.bounds.midY)
+            
+            if let matchedBlock = sortedBlocks.first(where: {
+                let rect = VNImageRectForNormalizedRect($0.boundingBox, Int(pageWidth), Int(pageHeight))
+                let invertedRect = CGRect(x: rect.minX, y: pageHeight - rect.maxY, width: rect.width, height: rect.height)
+                let expanded = invertedRect.insetBy(dx: -5, dy: -5)
+                return expanded.contains(fragMid)
+            }) {
+                blockFragmentsMap[matchedBlock.id, default: []].append(frag)
+            } else {
+                unassignedFragments.append(frag)
+            }
+        }
+
+        // 3. 依序組裝 YOLO 的 ParagraphBlock
+        var finalParagraphs: [ParagraphBlock] = []
+        for block in sortedBlocks {
+            guard let frags = blockFragmentsMap[block.id], !frags.isEmpty else { continue }
+            let sortedFrags = frags.sorted { $0.bounds.minY < $1.bounds.minY }
+            let role = mapYoloLabelToRole(block.label)
+            finalParagraphs.append(buildParagraphBlock(from: sortedFrags, role: role))
+        }
+
+        // 4. 將未被 YOLO 框選的邊角碎片，丟給舊版引擎進行備用排版
+        if !unassignedFragments.isEmpty {
+            let heuristicParagraphs = processPage(fragments: unassignedFragments, pageWidth: pageWidth, pageHeight: pageHeight)
+            finalParagraphs.append(contentsOf: heuristicParagraphs)
+            
+            // 將兩者混合後，依照嚴格的幾何位置進行最終大排序 (由上而下，同水平則由左而右)
+            finalParagraphs.sort { 
+                if abs($0.bounds.minY - $1.bounds.minY) > 20 { 
+                    return $0.bounds.minY < $1.bounds.minY 
+                }
+                return $0.bounds.minX < $1.bounds.minX
+            }
+        }
+
+        return finalParagraphs
+    }
+
+
+    // MARK: - 2. 閱讀順序演算法 (XY-Cut / Projection Profile)
+
+    /// 根據人類閱讀邏輯 (先上後下，先左後右)，對 YOLO 區塊進行幾何排序
+    private static func sortLayoutBlocks(_ blocks: [LayoutBlock], pageWidth: CGFloat, pageHeight: CGFloat) -> [LayoutBlock] {
+        // 先換算成顯示座標的 CGRect
+        let rectBlocks: [(block: LayoutBlock, rect: CGRect)] = blocks.map {
+            let rect = VNImageRectForNormalizedRect($0.boundingBox, Int(pageWidth), Int(pageHeight))
+            let inverted = CGRect(x: rect.minX, y: pageHeight - rect.maxY, width: rect.width, height: rect.height)
+            return ($0, inverted)
+        }
+        
+        // 按照 Y 座標由上而下初步排序
+        let ySorted = rectBlocks.sorted { $0.rect.minY < $1.rect.minY }
+        
+        // 1. Y 軸大區塊切割 (Region Segmentation)
+        var regions: [[(block: LayoutBlock, rect: CGRect)]] = []
+        var currentRegion: [(block: LayoutBlock, rect: CGRect)] = [ySorted[0]]
+        var currentMaxY = ySorted[0].rect.maxY
+        
+        // 假設預設字體大小約 12pt，Y 軸巨大斷層閾值設為 40pt (跨越多行距的明顯區塊)
+        let regionBreakGap: CGFloat = 40.0
+        
+        for i in 1..<ySorted.count {
+            let curr = ySorted[i]
+            let gap = curr.rect.minY - currentMaxY
+            
+            // 如果遇到明顯的 Y 軸斷層，視為新區塊 (例如摘要結束、雙欄開始)
+            if gap > regionBreakGap {
+                regions.append(currentRegion)
+                currentRegion = [curr]
+                currentMaxY = curr.rect.maxY
+            } else {
+                currentRegion.append(curr)
+                currentMaxY = max(currentMaxY, curr.rect.maxY)
+            }
+        }
+        if !currentRegion.isEmpty {
+            regions.append(currentRegion)
+        }
+        
+        // 2. 針對每個 Region 進行 X 軸分欄與排序
+        var finalSortedBlocks: [LayoutBlock] = []
+        
+        for region in regions {
+            let sortedRegionBlocks = sortRegionColumns(region, pageWidth: pageWidth)
+            finalSortedBlocks.append(contentsOf: sortedRegionBlocks.map { $0.block })
+        }
+        
+        return finalSortedBlocks
+    }
+
+    /// 在一個水平大區塊 (Region) 內，區分出左右欄位並進行排序
+    private static func sortRegionColumns(_ region: [(block: LayoutBlock, rect: CGRect)], pageWidth: CGFloat) -> [(block: LayoutBlock, rect: CGRect)] {
+        guard region.count > 1 else { return region }
+        
+        // 投射到 X 軸，找出欄位
+        var columns: [[(block: LayoutBlock, rect: CGRect)]] = []
+        
+        // 將區塊依 X 座標由左至右排序，以利尋找 Gutter
+        let xSorted = region.sorted { $0.rect.minX < $1.rect.minX }
+        
+        var currentColumn: [(block: LayoutBlock, rect: CGRect)] = [xSorted[0]]
+        var currentMaxX = xSorted[0].rect.maxX
+        
+        // Gutter 閾值：水平距離超過頁寬的 3% 視為換欄
+        let columnGutterGap = pageWidth * 0.03
+        
+        for i in 1..<xSorted.count {
+            let curr = xSorted[i]
+            let xGap = curr.rect.minX - currentMaxX
+            
+            if xGap > columnGutterGap {
+                columns.append(currentColumn)
+                currentColumn = [curr]
+                currentMaxX = curr.rect.maxX
+            } else {
+                currentColumn.append(curr)
+                currentMaxX = max(currentMaxX, curr.rect.maxX)
+            }
+        }
+        if !currentColumn.isEmpty {
+            columns.append(currentColumn)
+        }
+        
+        // 對每一欄內部的區塊進行 Y 軸排序 (由上而下)
+        var sortedRegion: [(block: LayoutBlock, rect: CGRect)] = []
+        for col in columns {
+            let ySortedCol = col.sorted { $0.rect.minY < $1.rect.minY }
+            sortedRegion.append(contentsOf: ySortedCol)
+        }
+        
+        return sortedRegion
+    }
+
+
+    // MARK: - Old Heuristic Engine Fallback
+
     static func detectColumns(fragments: [TextFragment], pageWidth: CGFloat, pageHeight: CGFloat) -> [ColumnRegion] {
         guard !fragments.isEmpty, pageWidth > 0 else {
             return [ColumnRegion(xRange: 0...pageWidth, fragments: fragments)]
@@ -107,13 +269,6 @@ enum LayoutEngine {
         return columns
     }
 
-    // MARK: - 2. 中位數間距分析 → 段落重組
-
-    /// 在單欄內，根據行間距的中位數將文字碎片重組為段落
-    /// - Parameters:
-    ///   - fragments: 單欄內的碎片 (應已按 Y 座標排序)
-    ///   - pageHeight: 頁面高度
-    /// - Returns: 聚合後的段落區塊陣列
     static func groupIntoParagraphs(fragments: [TextFragment], pageHeight: CGFloat) -> [ParagraphBlock] {
         guard !fragments.isEmpty else { return [] }
 
@@ -222,7 +377,7 @@ enum LayoutEngine {
 
             if shouldBreak {
                 // 完成當前段落
-                blocks.append(buildParagraphBlock(from: currentFrags))
+                blocks.append(buildParagraphBlock(from: currentFrags, role: .body))
                 currentFrags = [curr]
             } else {
                 currentFrags.append(curr)
@@ -231,42 +386,12 @@ enum LayoutEngine {
 
         // 收尾：最後一組
         if !currentFrags.isEmpty {
-            blocks.append(buildParagraphBlock(from: currentFrags))
+            blocks.append(buildParagraphBlock(from: currentFrags, role: .body))
         }
 
         return blocks
     }
 
-    // MARK: - 3. 智慧斷字修復
-
-    /// 修復跨行斷字 (e.g., "hyperdon-" + "tia" → "hyperdontia")
-    static func recoverHyphenation(lines: [String]) -> String {
-        var parts: [String] = []
-
-        for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { continue }
-
-            if let lastPart = parts.last, lastPart.hasSuffix("-"),
-               let lastChar = lastPart.dropLast().last, lastChar.isLetter {
-                // 發現斷字：移除末尾連字號，直接拼接下一行的第一個詞
-                parts[parts.count - 1] = String(lastPart.dropLast()) + trimmed
-            } else {
-                parts.append(trimmed)
-            }
-        }
-
-        return parts.joined(separator: " ")
-    }
-
-    // MARK: - 4. 頁面級完整處理流程
-
-    /// 對整個頁面的文字碎片進行完整的佈局分析
-    /// - Parameters:
-    ///   - fragments: 頁面上所有的文字碎片
-    ///   - pageWidth: 頁面寬度
-    ///   - pageHeight: 頁面高度
-    /// - Returns: 依閱讀順序排列的段落區塊陣列
     static func processPage(
         fragments: [TextFragment],
         pageWidth: CGFloat,
@@ -321,9 +446,6 @@ enum LayoutEngine {
         return allBlocks
     }
 
-    // MARK: - 5. 拓撲排序閱讀順序
-    
-    /// 將多個段落區塊轉換為有向圖，透過 Kahn 演算法計算閱讀順序
     static func sortBlocksTopologically(_ blocks: [ParagraphBlock]) -> [ParagraphBlock] {
         guard blocks.count > 1 else { return blocks }
         
@@ -402,10 +524,26 @@ enum LayoutEngine {
         return sortedIndices.map { blocks[$0] }
     }
 
-    // MARK: - Private Helpers
+    // MARK: - 3. 語意轉換與段落封裝
 
-    /// 從一組碎片建構一個 ParagraphBlock
-    private static func buildParagraphBlock(from fragments: [TextFragment]) -> ParagraphBlock {
+    /// 將 YOLO 的標籤映射到我們定義的 SemanticRole
+    private static func mapYoloLabelToRole(_ label: String) -> SemanticRole {
+        switch label.lowercased() {
+        case "title", "section-header":
+            return .heading
+        case "list-item":
+            return .listItem
+        case "caption":
+            return .caption
+        case "footnote":
+            return .footnote
+        default:
+            return .body
+        }
+    }
+
+    /// 從一組連續的文字碎片建構一個 ParagraphBlock
+    private static func buildParagraphBlock(from fragments: [TextFragment], role: SemanticRole) -> ParagraphBlock {
         // 計算外接矩形
         var minX = CGFloat.greatestFiniteMagnitude
         var minY = CGFloat.greatestFiniteMagnitude
@@ -430,13 +568,33 @@ enum LayoutEngine {
 
         return ParagraphBlock(
             fragments: fragments,
-            role: .body,  // 預設為內文，稍後由 SemanticClassifier 重新分類
+            role: role,
             unifiedText: unified,
             bounds: bounds
         )
     }
 
-    /// 針對論文常見的 PDF 字體亂碼進行修正 (例如 þ 被解析成 +，\u{FFFD} 被解析成等號或乘號)
+    /// 修復跨行斷字 (e.g., "hyperdon-" + "tia" → "hyperdontia")
+    private static func recoverHyphenation(lines: [String]) -> String {
+        var parts: [String] = []
+
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+
+            if let lastPart = parts.last, lastPart.hasSuffix("-"),
+               let lastChar = lastPart.dropLast().last, lastChar.isLetter {
+                // 發現斷字：移除末尾連字號，直接拼接下一行的第一個詞
+                parts[parts.count - 1] = String(lastPart.dropLast()) + trimmed
+            } else {
+                parts.append(trimmed)
+            }
+        }
+
+        return parts.joined(separator: " ")
+    }
+
+    /// 針對論文常見的 PDF 字體亂碼進行修正
     private static func sanitizeScientificOCR(_ text: String) -> String {
         var clean = text
         

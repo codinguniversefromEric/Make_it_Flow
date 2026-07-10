@@ -99,8 +99,8 @@ struct DebugPageView: View {
             let rawObservations = await LayoutVisionManager.shared.detectLayout(in: cgImage)
             
             // NMS 過濾 (使用共用 NMSUtils)
-            let sortedObs = rawObservations.sorted { ($0.labels.first?.confidence ?? 0) > ($1.labels.first?.confidence ?? 0) }
-            var filteredObservations: [VNRecognizedObjectObservation] = []
+            let sortedObs = rawObservations.sorted { $0.confidence > $1.confidence }
+            var filteredObservations: [LayoutBlock] = []
             for obs in sortedObs {
                 var keep = true
                 let cRect = obs.boundingBox
@@ -130,9 +130,9 @@ struct DebugPageView: View {
                     height: convertedRect.height
                 )
                 return DebugBlock(
-                    label: obs.labels.first?.identifier ?? "Unknown",
+                    label: obs.label,
                     rect: drawRect,
-                    confidence: obs.labels.first?.confidence ?? 0.0
+                    confidence: obs.confidence
                 )
             }
             

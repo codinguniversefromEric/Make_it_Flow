@@ -71,10 +71,27 @@ struct SettingsView: View {
                         Label("Vision Architecture", systemImage: "eye.trianglebadge.exclamationmark")
                     }
                     .pickerStyle(.navigationLink)
+                    
+                    if settings.selectedModel != .auto {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text("Manual override is active. Automatic OOM memory protection may be bypassed.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    } else {
+                        HStack {
+                            Spacer()
+                            Text("Current: \(LayoutVisionManager.shared.currentParserName)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 } header: {
                     Text("VISION")
                 } footer: {
-                    Text("Select the underlying YOLO architecture. Heavier models offer superior precision at the cost of processing speed.")
+                    Text("Select Auto to dynamically choose the best engine based on device memory and prevent OOM crashes.")
                 }
                 
                 // MARK: - 開發者

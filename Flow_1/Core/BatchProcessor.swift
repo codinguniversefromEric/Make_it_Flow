@@ -12,6 +12,9 @@ import Vision
 import CoreML
 import Combine
 import CoreText
+#if os(iOS)
+import UIKit
+#endif
 
 class BatchProcessor: ObservableObject {
     @Published var isProcessing = false
@@ -20,6 +23,18 @@ class BatchProcessor: ObservableObject {
     
     @Published var isCancelled: Bool = false
     private let activityTracker = ActivityTracker()
+    private var cancellables = Set<AnyCancellable>()
+    
+    init() {
+#if os(iOS)
+        NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)
+            .sink { _ in
+                MemoryManager.shared.downgradeToLowEnd()
+                LayoutVisionManager.shared.setupEngine()
+            }
+            .store(in: &cancellables)
+#endif
+    }
 
     func cancel() {
         self.isCancelled = true
@@ -144,8 +159,8 @@ class BatchProcessor: ObservableObject {
                 let rawObservations = await LayoutVisionManager.shared.detectLayout(in: validCGImg)
 
                 // NMS 過濾 (使用共用工具)
-                var filteredObs: [VNRecognizedObjectObservation] = []
-                let sortedObs = rawObservations.sorted { ($0.labels.first?.confidence ?? 0) > ($1.labels.first?.confidence ?? 0) }
+                var filteredObs: [LayoutBlock] = []
+                let sortedObs = rawObservations.sorted { $0.confidence > $1.confidence }
                 for obs in sortedObs {
                     var keep = true
                     let cRect = obs.boundingBox
@@ -161,11 +176,10 @@ class BatchProcessor: ObservableObject {
                 // 分離視覺區域 vs 文字區域
                 var visualRegions: [VisualRegion] = []
                 var textRegionRects: [CGRect] = []
-                var yoloHeaderRects: [CGRect] = []  // 🎯 保留 YOLO 的 Section-header 區域
 
                 for obs in filteredObs {
-                    let label = obs.labels.first?.identifier ?? "Unknown"
-                    let conf = obs.labels.first?.confidence ?? 0
+                    let label = obs.label
+                    let conf = obs.confidence
                     let cRect = VNImageRectForNormalizedRect(obs.boundingBox, Int(scaledSize.width), Int(scaledSize.height))
                     let dRect = CGRect(x: cRect.minX, y: scaledSize.height - cRect.maxY, width: cRect.width, height: cRect.height)
 
@@ -173,14 +187,10 @@ class BatchProcessor: ObservableObject {
                         visualRegions.append(VisualRegion(label: label, rect: dRect, confidence: conf))
                     } else {
                         textRegionRects.append(dRect)
-                        // 🎯 記錄 YOLO 辨識出的標題區域
-                        if label == "Section-header" || label == "Title" {
-                            yoloHeaderRects.append(dRect)
-                        }
                     }
                 }
 
-                print("📊 第 \(pageIndex + 1) 頁 YOLO: \(filteredObs.count) 區域 (\(visualRegions.count) 視覺, \(yoloHeaderRects.count) 標題)")
+                print("📊 第 \(pageIndex + 1) 頁 YOLO: \(filteredObs.count) 區域 (\(visualRegions.count) 視覺)")
 
                 // ═══════════════════════════════════════════
                 // STAGE 2: PDFKit 富文字萃取 → TextFragment
@@ -240,13 +250,14 @@ class BatchProcessor: ObservableObject {
                 }
 
                 // ═══════════════════════════════════════════
-                // STAGE 3: 佈局分析引擎 → 欄位偵測 + 段落重組
+                // STAGE 3: 佈局分析引擎 → 基於 YOLO 區塊的幾何重組
                 // ═══════════════════════════════════════════
 
                 print("📝 第 \(pageIndex + 1) 頁 PDFKit: \(textFragments.count) 文字行")
 
-                var paragraphs = LayoutEngine.processPage(
+                var paragraphs = LayoutEngine.processWithLayoutBlocks(
                     fragments: textFragments,
+                    blocks: filteredObs,
                     pageWidth: scaledSize.width,
                     pageHeight: scaledSize.height
                 )
@@ -257,22 +268,6 @@ class BatchProcessor: ObservableObject {
 
                 SemanticClassifier.classify(blocks: &paragraphs, pageHeight: scaledSize.height, styleRegistry: styleRegistry)
 
-                // 🎯 YOLO 輔助標題偵測：如果段落與 YOLO Section-header 重疊，強制分類為 heading
-                // 這是當 PDFKit 無法提供字型資訊時的救命稻草
-                if !yoloHeaderRects.isEmpty {
-                    for i in 0..<paragraphs.count {
-                        if paragraphs[i].role == .body {
-                            let paraMid = CGPoint(x: paragraphs[i].bounds.midX, y: paragraphs[i].bounds.midY)
-                            let matchesYOLO = yoloHeaderRects.contains { headerRect in
-                                headerRect.contains(paraMid) ||
-                                NMSUtils.calcCoverage(paragraphs[i].bounds, headerRect) > 0.5
-                            }
-                            if matchesYOLO {
-                                paragraphs[i].role = .heading
-                            }
-                        }
-                    }
-                }
 
                 // 📊 日誌輸出
                 let roleBreakdown = Dictionary(grouping: paragraphs, by: { $0.role })

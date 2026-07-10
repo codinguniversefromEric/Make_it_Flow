@@ -96,7 +96,7 @@ images were coregistered to diffusion native space and parcel-
 
 ### Results
 
-### Table 1 presents means, standard deviations, and lated into 94 contiguous regions of interest based on the
+Table 1 presents means, standard deviations, and lated into 94 contiguous regions of interest based on the
 
 ### correlations among depression measures, race, verautomatic anatomical labeling atlas 2 (AAL2; Rolls, Joliot, &
 
@@ -118,7 +118,7 @@ differences in model fit between quadratic models with or without freely estimat
 
 ### quadratic model without the freely estimated quadDepressive symptom severity course. Unconditional
 
-### ratic term to parsimoniously conduct structural multilevel growth modeling (Hedeker & Gibbons, 2012) in R
+ratic term to parsimoniously conduct structural multilevel growth modeling (Hedeker & Gibbons, 2012) in R
 
 ### connectivity analyses. At time 0 (age 10), average Statistical Software version 3.4.0 (R Core Team, 2017) was
 
@@ -126,7 +126,7 @@ differences in model fit between quadratic models with or without freely estimat
 
 ### p < .0001. With each one year increase in age, depressive severity across the ten time-points (e.g., annual
 
-### participants decreased an average of 0.51 unit in assessments from ages 10 to 19). The Level 1 model estimated
+participants decreased an average of 0.51 unit in assessments from ages 10 to 19). The Level 1 model estimated
 
 ---
 

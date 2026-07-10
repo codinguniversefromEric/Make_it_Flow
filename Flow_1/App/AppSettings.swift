@@ -21,9 +21,12 @@ class AppSettings: ObservableObject {
     
     // MARK: - Published Properties
     
-    /// 選擇的 YOLO 視覺模型
+    /// 選擇的視覺模型 (預設 Auto)
     @Published var selectedModel: VisionModelType {
-        didSet { UserDefaults.standard.set(selectedModel.rawValue, forKey: Keys.selectedModel) }
+        didSet {
+            UserDefaults.standard.set(selectedModel.rawValue, forKey: Keys.selectedModel)
+            LayoutVisionManager.shared.setupEngine()
+        }
     }
     
     /// 是否啟用 AI 語意修復
@@ -37,9 +40,8 @@ class AppSettings: ObservableObject {
     }
     
     private init() {
-        // 載入已保存的偏好設定
-        let savedModelRaw = UserDefaults.standard.string(forKey: Keys.selectedModel) ?? VisionModelType.standard.rawValue
-        self.selectedModel = VisionModelType(rawValue: savedModelRaw) ?? .standard
+        let savedModelRaw = UserDefaults.standard.string(forKey: Keys.selectedModel) ?? VisionModelType.auto.rawValue
+        self.selectedModel = VisionModelType(rawValue: savedModelRaw) ?? .auto
         
         self.useAI = UserDefaults.standard.object(forKey: Keys.useAI) as? Bool ?? true
         self.debugMode = UserDefaults.standard.object(forKey: Keys.debugMode) as? Bool ?? false
