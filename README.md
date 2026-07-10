@@ -57,6 +57,18 @@ The app comes with a local StoreKit configuration to test the paywall without ne
 3. Under **StoreKit Configuration**, select `Flow_1.storekit`.
 4. Run the app. You can now test the paywall freely in the local environment!
 
+## 📊 Model Benchmark & Comparison
+
+To understand the trade-offs between different models tested during the development of this app, here is a comparison of Document Layout Analysis (DLA) models:
+
+| Model | Framework | Size | Inference Time (M2) | Strengths / Trade-offs |
+|-------|-----------|------|-----------------------------------|-----------|
+| **YOLOv8n (Fast)** | CoreML | ~12MB | Ultra-fast (< 50ms) | Extremely lightweight. Good for mobile apps. Detects basic text, titles, and headers well. |
+| **YOLOv11s (DocLayNet)** | CoreML | ~35MB | Fast (~100ms) | Higher mAP. Better boundary precision for complex tables and figures. Requires raw tensor post-processing when NMS is stripped. |
+| **Marker Pipeline** | PyTorch/ONNX | > 1GB | Slow (Desktop/Cloud) | State-of-the-Art accuracy. End-to-end pipeline generating full markdown with perfect formula parsing, but too heavy for iOS on-device. |
+
+*Note: Make it Flow intentionally chooses the CoreML YOLO models to guarantee fast, 100% on-device offline processing without draining the battery.*
+
 ## 🧠 Architecture Overview
 
 * **`VisionEngine` & `BatchProcessor`**: The heart of the app. It takes a PDF, converts pages to images, runs YOLO to detect layout blocks (Tables, Figures), and extracts text via PDFKit.
