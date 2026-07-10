@@ -40,11 +40,11 @@ commands:
     outputs: ["/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI_Flow_CLI.bundle/best_conf0.1.mlpackage/"]
     description: "Copying /Users/giyoshimiken/Documents/Flow_1/Flow_CLI/models/best_conf0.1.mlpackage"
 
-  "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI_Flow_CLI.bundle/yolov11s-doclaynet-nonms.mlpackage":
+  "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI_Flow_CLI.bundle/yolov10s_best.mlpackage":
     tool: copy-tool
-    inputs: ["/Users/giyoshimiken/Documents/Flow_1/Flow_CLI/models/yolov11s-doclaynet-nonms.mlpackage/"]
-    outputs: ["/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI_Flow_CLI.bundle/yolov11s-doclaynet-nonms.mlpackage/"]
-    description: "Copying /Users/giyoshimiken/Documents/Flow_1/Flow_CLI/models/yolov11s-doclaynet-nonms.mlpackage"
+    inputs: ["/Users/giyoshimiken/Documents/Flow_1/Flow_CLI/models/yolov10s_best.mlpackage/"]
+    outputs: ["/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI_Flow_CLI.bundle/yolov10s_best.mlpackage/"]
+    description: "Copying /Users/giyoshimiken/Documents/Flow_1/Flow_CLI/models/yolov10s_best.mlpackage"
 
   "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI_Flow_CLI.bundle/yolov11s-doclaynet.mlpackage":
     tool: copy-tool
@@ -92,7 +92,7 @@ commands:
 
   "Flow_CLI-arm64-apple-macosx26.0-debug.module-resources":
     tool: phony
-    inputs: ["/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI_Flow_CLI.bundle/best_conf0.1.mlpackage/","/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI_Flow_CLI.bundle/yolov11s-doclaynet-nonms.mlpackage/","/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI_Flow_CLI.bundle/yolov11s-doclaynet.mlpackage/"]
+    inputs: ["/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI_Flow_CLI.bundle/best_conf0.1.mlpackage/","/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI_Flow_CLI.bundle/yolov10s_best.mlpackage/","/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI_Flow_CLI.bundle/yolov11s-doclaynet.mlpackage/"]
     outputs: ["<Flow_CLI-arm64-apple-macosx26.0-debug.module-resources>"]
 
   "PackageStructure":

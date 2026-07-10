@@ -115,7 +115,11 @@ class YOLOLayoutParser: LayoutParser {
             }
             #else
             // CLI 動態載入
-            let packageURL = Bundle.module.url(forResource: modelName, withExtension:"mlpackage")!
+            var actualModelName = modelName
+            if modelName == "yolov11s-doclaynet" {
+                actualModelName = "yolov10s_best"
+            }
+            let packageURL = Bundle.module.url(forResource: actualModelName, withExtension:"mlpackage")!
             let compiledURL = try MLModel.compileModel(at: packageURL)
             let coreMLModel = try MLModel(contentsOf: compiledURL, configuration: config)
             #endif
@@ -211,18 +215,17 @@ class YOLOLayoutParser: LayoutParser {
                     }
                 }
                 // Case 2: Raw tensor output (nms=False)
-                else if let featureResults = results as? [VNCoreMLFeatureValueObservation], featureResults.count >= 2 {
-                    // Find confidence and coordinates arrays
-                    // In YOLOv11 CoreML output (without NMS layer), there are two outputs:
-                    // var_1151: shape (21504, 80) - confidence
-                    // var_1153: shape (21504, 4) - coordinates
-                    
+                else if let featureResults = results as? [VNCoreMLFeatureValueObservation] {
+                    var yolo10MultiArray: MLMultiArray?
                     var confArray: MLMultiArray?
                     var coordArray: MLMultiArray?
                     
                     for feature in featureResults {
                         guard let multiArray = feature.featureValue.multiArrayValue else { continue }
-                        if multiArray.shape.count >= 2 {
+                        if multiArray.shape.count == 3 && multiArray.shape[2].intValue == 6 {
+                            // YOLOv10 NMS-Free format: [1, 300, 6]
+                            yolo10MultiArray = multiArray
+                        } else if multiArray.shape.count >= 2 {
                             if multiArray.shape.last?.intValue == 4 {
                                 coordArray = multiArray
                             } else {
@@ -231,9 +234,43 @@ class YOLOLayoutParser: LayoutParser {
                         }
                     }
                     
-                    if let confArray = confArray, let coordArray = coordArray {
+                    let classes = ["Caption", "Footnote", "Formula", "List-item", "Page-footer", "Page-header", "Picture", "Section-header", "Table", "Text", "Title"]
+                    
+                    if let yolo10 = yolo10MultiArray {
+                        // YOLOv10 processing
+                        let numBoxes = yolo10.shape[1].intValue
+                        let pointer = UnsafeMutablePointer<Float32>(OpaquePointer(yolo10.dataPointer))
+                        let strideBox = yolo10.strides[1].intValue
+                        let confThreshold: Float32 = 0.25
+                        
+                        for b in 0..<numBoxes {
+                            let conf = pointer[b * strideBox + 4]
+                            if conf > confThreshold {
+                                let x1 = pointer[b * strideBox + 0]
+                                let y1 = pointer[b * strideBox + 1]
+                                let x2 = pointer[b * strideBox + 2]
+                                let y2 = pointer[b * strideBox + 3]
+                                let classIdx = Int(pointer[b * strideBox + 5])
+                                
+                                // Coordinates are usually absolute to imgsz [0, 1024].
+                                let nx = (x1 + x2) / 2.0 / 1024.0
+                                let ny = (y1 + y2) / 2.0 / 1024.0
+                                let nw = (x2 - x1) / 1024.0
+                                let nh = (y2 - y1) / 1024.0
+                                
+                                let minX = CGFloat(nx - nw / 2)
+                                let minY = CGFloat(1.0 - (ny + nh / 2))
+                                let localRect = CGRect(x: minX, y: minY, width: CGFloat(nw), height: CGFloat(nh))
+                                let globalBoundingBox = self.toGlobalBoundingBox(localRect: localRect, tileRect: tileRect, fullWidth: fullWidth, fullHeight: fullHeight)
+                                
+                                let label = classIdx < classes.count ? classes[classIdx] : "Unknown"
+                                blocks.append(LayoutBlock(boundingBox: globalBoundingBox, label: label, confidence: conf))
+                            }
+                        }
+                    }
+                    else if let confArray = confArray, let coordArray = coordArray {
                         let numAnchors = confArray.shape[0].intValue
-                        let numClasses = min(confArray.shape[1].intValue, 11) // Only first 11 classes for DocLayNet
+                        let numClasses = min(confArray.shape[1].intValue, 11)
                         
                         let confPointer = UnsafeMutablePointer<Float32>(OpaquePointer(confArray.dataPointer))
                         let coordPointer = UnsafeMutablePointer<Float32>(OpaquePointer(coordArray.dataPointer))
@@ -245,7 +282,6 @@ class YOLOLayoutParser: LayoutParser {
                         let coordStrideDim = coordArray.strides[1].intValue
                         
                         let confThreshold: Float32 = 0.25
-                        let classes = ["Caption", "Footnote", "Formula", "List-item", "Page-footer", "Page-header", "Picture", "Section-header", "Table", "Text", "Title"]
                         
                         for a in 0..<numAnchors {
                             var maxConf: Float32 = 0
@@ -265,8 +301,6 @@ class YOLOLayoutParser: LayoutParser {
                                 let w  = coordPointer[a * coordStrideAnchor + 2 * coordStrideDim]
                                 let h  = coordPointer[a * coordStrideAnchor + 3 * coordStrideDim]
                                 
-                                // Coordinates are usually normalized [0,1] or absolute to imgsz [0, 1024].
-                                // We check if they are > 1, if so divide by 1024
                                 let nx = cx > 2.0 ? cx / 1024.0 : cx
                                 let ny = cy > 2.0 ? cy / 1024.0 : cy
                                 let nw = w > 2.0 ? w / 1024.0 : w
@@ -281,8 +315,6 @@ class YOLOLayoutParser: LayoutParser {
                                 blocks.append(LayoutBlock(boundingBox: globalBoundingBox, label: label, confidence: maxConf))
                             }
                         }
-                        
-                        // Apply NMS explicitly since we bypassed CoreML NMS
                         blocks = self.applyNMS(blocks: blocks, iouThreshold: 0.45)
                     }
                 }
