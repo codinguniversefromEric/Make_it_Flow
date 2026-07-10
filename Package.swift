@@ -16,7 +16,8 @@ let package = Package(
             dependencies: [],
             path: "Flow_CLI",
             resources: [
-                .copy("models/best_conf0.1.mlpackage")
+                .copy("models/best_conf0.1.mlpackage"),
+                .copy("models/yolov11s-doclaynet.mlpackage")
             ],
             swiftSettings: [
                 .define("CLI_MODE")

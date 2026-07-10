@@ -96,7 +96,7 @@ images were coregistered to diffusion native space and parcel-
 
 ### Results
 
-Table 1 presents means, standard deviations, and lated into 94 contiguous regions of interest based on the
+### Table 1 presents means, standard deviations, and lated into 94 contiguous regions of interest based on the
 
 ### correlations among depression measures, race, verautomatic anatomical labeling atlas 2 (AAL2; Rolls, Joliot, &
 
@@ -112,19 +112,19 @@ Depressive symptom severity course each of the 94 regions. The maximum connectiv
 
 The quadratic model fit the longitudinal data slightly connectivity matrices representing the probabilities of connections among regions (i.e., 94 9 94 undirected and weighted
 
-### better than the linear model; however, there were no matrices; additional detail in Appendix S3).
+better than the linear model; however, there were no matrices; additional detail in Appendix S3).
 
 differences in model fit between quadratic models with or without freely estimated quadratic terms (Table S1). Based on these results, we selected the Data analysis
 
-### quadratic model without the freely estimated quadDepressive symptom severity course. Unconditional
+quadratic model without the freely estimated quadDepressive symptom severity course. Unconditional
 
 ratic term to parsimoniously conduct structural multilevel growth modeling (Hedeker & Gibbons, 2012) in R
 
-### connectivity analyses. At time 0 (age 10), average Statistical Software version 3.4.0 (R Core Team, 2017) was
+connectivity analyses. At time 0 (age 10), average Statistical Software version 3.4.0 (R Core Team, 2017) was
 
-### depressive severity score was 7.27, t(114)= 18.72, used to measure within- and between-individual change in
+depressive severity score was 7.27, t(114)= 18.72, used to measure within- and between-individual change in
 
-### p < .0001. With each one year increase in age, depressive severity across the ten time-points (e.g., annual
+p < .0001. With each one year increase in age, depressive severity across the ten time-points (e.g., annual
 
 participants decreased an average of 0.51 unit in assessments from ages 10 to 19). The Level 1 model estimated
 

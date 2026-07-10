@@ -15,6 +15,7 @@ public enum VisionModelType: String, CaseIterable, Identifiable {
     case auto = "Auto (RAM Based)"
     case yoloStandard = "YOLO Standard (best)"
     case yoloFast = "YOLO Fast (best_conf0.1)"
+    case yoloDocLayNet = "YOLO DocLayNet (v11s)"
     case surya = "Surya Vision (FP16)"
     
     public var id: String { self.rawValue }
@@ -56,9 +57,9 @@ public class LayoutVisionManager: ObservableObject {
                 self.currentParserName = "Auto: Surya Engine (High-End)"
                 AppLogger.shared.info("✅ 視覺引擎已切換為：Surya (Auto/High-Accuracy)")
             case .lowEnd:
-                self.activeParser = YOLOLayoutParser(modelName: "best_conf0.1")
-                self.currentParserName = "Auto: YOLO Engine (Low-End Fallback)"
-                AppLogger.shared.info("✅ 視覺引擎已切換為：YOLO Fast (Auto/Fallback)")
+                self.activeParser = YOLOLayoutParser(modelName: "yolov11s-doclaynet")
+                self.currentParserName = "Auto: YOLO DocLayNet (Auto/Fallback)"
+                AppLogger.shared.info("✅ 視覺引擎已切換為：YOLO DocLayNet (Auto/Fallback)")
             }
         case .yoloStandard:
             self.activeParser = YOLOLayoutParser(modelName: "best")
@@ -68,6 +69,10 @@ public class LayoutVisionManager: ObservableObject {
             self.activeParser = YOLOLayoutParser(modelName: "best_conf0.1")
             self.currentParserName = "Manual: YOLO Fast"
             AppLogger.shared.info("✅ 視覺引擎已切換為：YOLO Fast (Manual)")
+        case .yoloDocLayNet:
+            self.activeParser = YOLOLayoutParser(modelName: "yolov11s-doclaynet")
+            self.currentParserName = "Manual: YOLO DocLayNet (v11s)"
+            AppLogger.shared.info("✅ 視覺引擎已切換為：YOLO DocLayNet (Manual)")
         case .surya:
             self.activeParser = SuryaLayoutParser()
             self.currentParserName = "Manual: Surya Engine"
@@ -95,8 +100,18 @@ class YOLOLayoutParser: LayoutParser {
             let coreMLModel: MLModel
             if modelName == "best" {
                 coreMLModel = try best(configuration: config).model
-            } else {
+            } else if modelName == "best_conf0.1" {
                 coreMLModel = try best_conf0_1(configuration: config).model
+            } else {
+                // 動態載入新模型
+                let bundle = Bundle.main
+                if let packageURL = bundle.url(forResource: modelName, withExtension:"mlmodelc") ?? bundle.url(forResource: modelName, withExtension:"mlpackage") {
+                    let compiledURL = try MLModel.compileModel(at: packageURL)
+                    coreMLModel = try MLModel(contentsOf: compiledURL, configuration: config)
+                } else {
+                    // Fallback
+                    coreMLModel = try best_conf0_1(configuration: config).model
+                }
             }
             #else
             // CLI 動態載入
@@ -106,6 +121,10 @@ class YOLOLayoutParser: LayoutParser {
             #endif
             
             let newModel = try VNCoreMLModel(for: coreMLModel)
+            newModel.featureProvider = try MLDictionaryFeatureProvider(dictionary: [
+                "iouThreshold": 0.45,
+                "confidenceThreshold": 0.25
+            ])
             modelQueue.sync {
                 self.visionModel = newModel
             }
@@ -170,42 +189,104 @@ class YOLOLayoutParser: LayoutParser {
     private func processTile(tileImage: CGImage, tileRect: CGRect, fullWidth: CGFloat, fullHeight: CGFloat, model: VNCoreMLModel) async -> [LayoutBlock] {
         return await withCheckedContinuation { continuation in
             let request = VNCoreMLRequest(model: model) { request, error in
-                guard let results = request.results as? [VNRecognizedObjectObservation] else {
+                print("--- YOLO Request Finished ---")
+                print("Error: \(String(describing: error))")
+                print("Results count: \(request.results?.count ?? 0)")
+                guard let results = request.results else {
                     continuation.resume(returning: [])
                     return
                 }
                 
                 var blocks: [LayoutBlock] = []
-                for obs in results {
-                    let localRect = obs.boundingBox // 0~1, origin bottom-left
-                    
-                    // 換算成 Tile 的絕對像素座標 (原點為 Tile 左下角)
-                    let localPixelWidth = localRect.width * tileRect.width
-                    let localPixelHeight = localRect.height * tileRect.height
-                    let localPixelX = localRect.minX * tileRect.width
-                    let localPixelY = localRect.minY * tileRect.height // 從 Tile 下方往上
-                    
-                    // 換算成整張影像的絕對像素座標 (原點為全圖左下角)
-                    // Tile 底部距離全圖底部的距離 = 全圖高 - Tile底部Y坐標(從上面算)
-                    let tileBottomYFromTop = tileRect.maxY
-                    let tileBottomYFromBottom = fullHeight - tileBottomYFromTop
-                    
-                    let globalPixelX = tileRect.minX + localPixelX
-                    let globalPixelY = tileBottomYFromBottom + localPixelY
-                    
-                    // 換算成全圖的正規化座標
-                    let globalNormalizedX = globalPixelX / fullWidth
-                    let globalNormalizedY = globalPixelY / fullHeight
-                    let globalNormalizedWidth = localPixelWidth / fullWidth
-                    let globalNormalizedHeight = localPixelHeight / fullHeight
-                    
-                    let globalBoundingBox = CGRect(x: globalNormalizedX, y: globalNormalizedY, width: globalNormalizedWidth, height: globalNormalizedHeight)
-                    
-                    if let topLabel = obs.labels.first {
-                        let block = LayoutBlock(boundingBox: globalBoundingBox, label: topLabel.identifier, confidence: topLabel.confidence)
-                        blocks.append(block)
+                
+                // Case 1: Model has built-in NMS (VNRecognizedObjectObservation)
+                if let objectResults = results as? [VNRecognizedObjectObservation] {
+                    for obs in objectResults {
+                        let localRect = obs.boundingBox // 0~1, origin bottom-left
+                        let globalBoundingBox = self.toGlobalBoundingBox(localRect: localRect, tileRect: tileRect, fullWidth: fullWidth, fullHeight: fullHeight)
+                        
+                        if let topLabel = obs.labels.first {
+                            blocks.append(LayoutBlock(boundingBox: globalBoundingBox, label: topLabel.identifier, confidence: topLabel.confidence))
+                        }
                     }
                 }
+                // Case 2: Raw tensor output (nms=False)
+                else if let featureResults = results as? [VNCoreMLFeatureValueObservation], featureResults.count >= 2 {
+                    // Find confidence and coordinates arrays
+                    // In YOLOv11 CoreML output (without NMS layer), there are two outputs:
+                    // var_1151: shape (21504, 80) - confidence
+                    // var_1153: shape (21504, 4) - coordinates
+                    
+                    var confArray: MLMultiArray?
+                    var coordArray: MLMultiArray?
+                    
+                    for feature in featureResults {
+                        guard let multiArray = feature.featureValue.multiArrayValue else { continue }
+                        if multiArray.shape.count >= 2 {
+                            if multiArray.shape.last?.intValue == 4 {
+                                coordArray = multiArray
+                            } else {
+                                confArray = multiArray
+                            }
+                        }
+                    }
+                    
+                    if let confArray = confArray, let coordArray = coordArray {
+                        let numAnchors = confArray.shape[0].intValue
+                        let numClasses = min(confArray.shape[1].intValue, 11) // Only first 11 classes for DocLayNet
+                        
+                        let confPointer = UnsafeMutablePointer<Float32>(OpaquePointer(confArray.dataPointer))
+                        let coordPointer = UnsafeMutablePointer<Float32>(OpaquePointer(coordArray.dataPointer))
+                        
+                        let confStrideAnchor = confArray.strides[0].intValue
+                        let confStrideClass = confArray.strides[1].intValue
+                        
+                        let coordStrideAnchor = coordArray.strides[0].intValue
+                        let coordStrideDim = coordArray.strides[1].intValue
+                        
+                        let confThreshold: Float32 = 0.25
+                        let classes = ["Caption", "Footnote", "Formula", "List-item", "Page-footer", "Page-header", "Picture", "Section-header", "Table", "Text", "Title"]
+                        
+                        for a in 0..<numAnchors {
+                            var maxConf: Float32 = 0
+                            var maxClassIdx: Int = 0
+                            
+                            for c in 0..<numClasses {
+                                let conf = confPointer[a * confStrideAnchor + c * confStrideClass]
+                                if conf > maxConf {
+                                    maxConf = conf
+                                    maxClassIdx = c
+                                }
+                            }
+                            
+                            if maxConf > confThreshold {
+                                let cx = coordPointer[a * coordStrideAnchor + 0 * coordStrideDim]
+                                let cy = coordPointer[a * coordStrideAnchor + 1 * coordStrideDim]
+                                let w  = coordPointer[a * coordStrideAnchor + 2 * coordStrideDim]
+                                let h  = coordPointer[a * coordStrideAnchor + 3 * coordStrideDim]
+                                
+                                // Coordinates are usually normalized [0,1] or absolute to imgsz [0, 1024].
+                                // We check if they are > 1, if so divide by 1024
+                                let nx = cx > 2.0 ? cx / 1024.0 : cx
+                                let ny = cy > 2.0 ? cy / 1024.0 : cy
+                                let nw = w > 2.0 ? w / 1024.0 : w
+                                let nh = h > 2.0 ? h / 1024.0 : h
+                                
+                                let minX = CGFloat(nx - nw / 2)
+                                let minY = CGFloat(1.0 - (ny + nh / 2))
+                                let localRect = CGRect(x: minX, y: minY, width: CGFloat(nw), height: CGFloat(nh))
+                                let globalBoundingBox = self.toGlobalBoundingBox(localRect: localRect, tileRect: tileRect, fullWidth: fullWidth, fullHeight: fullHeight)
+                                
+                                let label = maxClassIdx < classes.count ? classes[maxClassIdx] : "Unknown"
+                                blocks.append(LayoutBlock(boundingBox: globalBoundingBox, label: label, confidence: maxConf))
+                            }
+                        }
+                        
+                        // Apply NMS explicitly since we bypassed CoreML NMS
+                        blocks = self.applyNMS(blocks: blocks, iouThreshold: 0.45)
+                    }
+                }
+                
                 continuation.resume(returning: blocks)
             }
             
@@ -219,6 +300,26 @@ class YOLOLayoutParser: LayoutParser {
                 continuation.resume(returning: [])
             }
         }
+    }
+    
+    private func toGlobalBoundingBox(localRect: CGRect, tileRect: CGRect, fullWidth: CGFloat, fullHeight: CGFloat) -> CGRect {
+        let localPixelWidth = localRect.width * tileRect.width
+        let localPixelHeight = localRect.height * tileRect.height
+        let localPixelX = localRect.minX * tileRect.width
+        let localPixelY = localRect.minY * tileRect.height
+        
+        let tileBottomYFromTop = tileRect.maxY
+        let tileBottomYFromBottom = fullHeight - tileBottomYFromTop
+        
+        let globalPixelX = tileRect.minX + localPixelX
+        let globalPixelY = tileBottomYFromBottom + localPixelY
+        
+        let globalNormalizedX = globalPixelX / fullWidth
+        let globalNormalizedY = globalPixelY / fullHeight
+        let globalNormalizedWidth = localPixelWidth / fullWidth
+        let globalNormalizedHeight = localPixelHeight / fullHeight
+        
+        return CGRect(x: globalNormalizedX, y: globalNormalizedY, width: globalNormalizedWidth, height: globalNormalizedHeight)
     }
     
     private func applyNMS(blocks: [LayoutBlock], iouThreshold: Float) -> [LayoutBlock] {

@@ -529,16 +529,18 @@ enum LayoutEngine {
     /// 將 YOLO 的標籤映射到我們定義的 SemanticRole
     private static func mapYoloLabelToRole(_ label: String) -> SemanticRole {
         switch label.lowercased() {
-        case "title", "section-header":
-            return .heading
-        case "list-item":
-            return .listItem
-        case "caption":
-            return .caption
-        case "footnote":
-            return .footnote
-        default:
-            return .body
+        case "title": return .title
+        case "section-header": return .heading
+        case "text": return .body
+        case "list-item": return .listItem
+        case "caption": return .caption
+        case "footnote": return .footnote
+        case "formula": return .formula
+        case "picture": return .picture
+        case "table": return .table
+        case "page-header": return .pageHeader
+        case "page-footer": return .pageFooter
+        default: return .body
         }
     }
 

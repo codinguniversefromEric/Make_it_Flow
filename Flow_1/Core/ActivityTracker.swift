@@ -71,6 +71,7 @@ actor ActivityTracker {
 }
 #endif
 
+#if os(iOS)
 import AppIntents
 
 @available(iOS 16.1, *)
@@ -85,3 +86,4 @@ public struct CancelConversionIntent: LiveActivityIntent {
         return .result()
     }
 }
+#endif

@@ -1,9 +1,9 @@
 {
     "hf_sample_0.pdf": {
-        "time_seconds": 0.53,
-        "length_ratio": 1.017,
+        "time_seconds": 0.54,
+        "length_ratio": 1.015,
         "normalized_edit_distance": 0.215,
-        "similarity": 0.397
+        "similarity": 0.398
     },
     "hf_sample_1.pdf": {
         "time_seconds": 0.07,

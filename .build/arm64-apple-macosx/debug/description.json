@@ -16,6 +16,34 @@
           "name" : "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI_Flow_CLI.bundle/best_conf0.1.mlpackage"
         }
       ]
+    },
+    "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI_Flow_CLI.bundle/yolov11s-doclaynet-nonms.mlpackage" : {
+      "inputs" : [
+        {
+          "kind" : "directory",
+          "name" : "/Users/giyoshimiken/Documents/Flow_1/Flow_CLI/models/yolov11s-doclaynet-nonms.mlpackage"
+        }
+      ],
+      "outputs" : [
+        {
+          "kind" : "directory",
+          "name" : "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI_Flow_CLI.bundle/yolov11s-doclaynet-nonms.mlpackage"
+        }
+      ]
+    },
+    "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI_Flow_CLI.bundle/yolov11s-doclaynet.mlpackage" : {
+      "inputs" : [
+        {
+          "kind" : "directory",
+          "name" : "/Users/giyoshimiken/Documents/Flow_1/Flow_CLI/models/yolov11s-doclaynet.mlpackage"
+        }
+      ],
+      "outputs" : [
+        {
+          "kind" : "directory",
+          "name" : "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI_Flow_CLI.bundle/yolov11s-doclaynet.mlpackage"
+        }
+      ]
     }
   },
   "explicitTargetDependencyImportCheckingMode" : {
