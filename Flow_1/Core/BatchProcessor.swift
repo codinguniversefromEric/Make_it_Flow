@@ -22,6 +22,7 @@ class BatchProcessor: ObservableObject {
     @Published var exportedFileURL: URL?
     
     @Published var isCancelled: Bool = false
+    private var currentTask: Task<Void, Never>?
     private let activityTracker = ActivityTracker()
     private var cancellables = Set<AnyCancellable>()
     
@@ -35,11 +36,12 @@ class BatchProcessor: ObservableObject {
             .store(in: &cancellables)
 #endif
     }
-
+    
     func cancel() {
         self.isCancelled = true
+        self.currentTask?.cancel()
     }
-
+    
     @MainActor
     func exportDocument(_ document: PDFDocument, fileName: String? = nil) async {
         AppLogger.shared.info("Starting PDF export. Total pages: \(document.pageCount)")
@@ -47,7 +49,7 @@ class BatchProcessor: ObservableObject {
         self.isProcessing = true
         self.progress = 0.0
         self.exportedFileURL = nil
-
+        
         // 📖 從 PDF 元資料萃取文件標題
         let initialTitle: String? = {
             let pdfMetadataTitle = document.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String
@@ -60,7 +62,7 @@ class BatchProcessor: ObservableObject {
         
         let displayTitle = initialTitle ?? "Document"
         Task { await self.activityTracker.start(documentName: displayTitle) }
-
+        
         // 🚀 建立專屬的「匯出資料夾」與「圖片庫」
         let fm = FileManager.default
         let exportDir = fm.temporaryDirectory.appendingPathComponent("LibriAI_Export")
@@ -73,8 +75,8 @@ class BatchProcessor: ObservableObject {
         
         let assetsDir = exportDir.appendingPathComponent("assets")
         try? fm.createDirectory(at: assetsDir, withIntermediateDirectories: true)
-
-        await Task.detached(priority: .userInitiated) {
+        
+        self.currentTask = Task.detached(priority: .userInitiated) {
             // 📖 These mutable variables are fully owned by the detached task to avoid data races
             var detectedTitle = initialTitle
             var fullMarkdown = ""
@@ -98,14 +100,14 @@ class BatchProcessor: ObservableObject {
                 AppLogger.shared.info("Processing page \(pageIndex + 1)/\(document.pageCount)")
                 // 🛑 讓 CPU 喘口氣
                 await Task.yield()
-
+                
                 guard let page = document.page(at: pageIndex) else {
                     AppLogger.shared.warning("Failed to get page at index \(pageIndex)")
                     continue
                 }
-
+                
                 let pageBounds = page.bounds(for: .cropBox)
-
+                
                 // 🎯 模型感知的渲染倍率：統一使用 2x
                 let scale: CGFloat = 2.0
                 let scaledSize = CGSize(width: pageBounds.width * scale, height: pageBounds.height * scale)
@@ -113,7 +115,7 @@ class BatchProcessor: ObservableObject {
                 // 🛡️ 記憶體防護罩
                 var rawImage: AppImage? = nil
                 var cgImg: CGImage? = nil
-
+                
                 autoreleasepool {
 #if os(iOS)
                     let format = UIGraphicsImageRendererFormat()
@@ -151,13 +153,13 @@ class BatchProcessor: ObservableObject {
                 }
                 
                 guard let validCGImg = cgImg, let validRawImage = rawImage else { continue }
-
+                
                 // ═══════════════════════════════════════════
                 // STAGE 1: YOLO 視覺區域偵測 (圖片/表格/公式)
                 // ═══════════════════════════════════════════
-
+                
                 let rawObservations = await LayoutVisionManager.shared.detectLayout(in: validCGImg)
-
+                
                 // NMS 過濾 (使用共用工具)
                 var filteredObs: [LayoutBlock] = []
                 let sortedObs = rawObservations.sorted { $0.confidence > $1.confidence }
@@ -172,37 +174,37 @@ class BatchProcessor: ObservableObject {
                     }
                     if keep { filteredObs.append(obs) }
                 }
-
+                
                 // 分離視覺區域 vs 文字區域
                 var visualRegions: [VisualRegion] = []
                 var textRegionRects: [CGRect] = []
-
+                
                 for obs in filteredObs {
                     let label = obs.label
                     let conf = obs.confidence
                     let cRect = VNImageRectForNormalizedRect(obs.boundingBox, Int(scaledSize.width), Int(scaledSize.height))
                     let dRect = CGRect(x: cRect.minX, y: scaledSize.height - cRect.maxY, width: cRect.width, height: cRect.height)
-
+                    
                     if label == "Picture" || label == "Figure" || label == "Formula" || label == "Table" {
                         visualRegions.append(VisualRegion(label: label, rect: dRect, confidence: conf))
                     } else {
                         textRegionRects.append(dRect)
                     }
                 }
-
+                
                 print("📊 第 \(pageIndex + 1) 頁 YOLO: \(filteredObs.count) 區域 (\(visualRegions.count) 視覺)")
-
+                
                 // ═══════════════════════════════════════════
                 // STAGE 2: PDFKit 富文字萃取 → TextFragment
                 // ═══════════════════════════════════════════
-
+                
                 var textFragments: [TextFragment] = []
                 var tableFragments: [Int: [TextFragment]] = [:]
-
+                
                 if let selection = page.selection(for: pageBounds) {
                     for line in selection.selectionsByLine() {
                         guard let lineText = line.string, !lineText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
-
+                        
                         let pRect = line.bounds(for: page)
                         let displayRect = CGRect(
                             x: pRect.minX * scale,
@@ -210,11 +212,11 @@ class BatchProcessor: ObservableObject {
                             width: pRect.width * scale,
                             height: pRect.height * scale
                         )
-
+                        
                         // 📝 嘗試從 attributedString 擷取字體資訊
                         var fontSize: CGFloat = 12.0
                         var isBold = false
-
+                        
                         if let attrStr = line.attributedString {
                             attrStr.enumerateAttribute(.font, in: NSRange(location: 0, length: attrStr.length)) { value, _, _ in
                                 if let font = value as? AppFont {
@@ -223,14 +225,14 @@ class BatchProcessor: ObservableObject {
                                 }
                             }
                         }
-
+                        
                         let fragment = TextFragment(
                             text: lineText,
                             bounds: displayRect,
                             fontSize: fontSize * scale,
                             isBold: isBold
                         )
-
+                        
                         // 🔍 排除落在視覺區域 (圖片/表格) 內的文字行，但保留表格內的碎片用於結構重建
                         let lineMid = CGPoint(x: displayRect.midX, y: displayRect.midY)
                         var handledByVisualRegion = false
@@ -244,42 +246,42 @@ class BatchProcessor: ObservableObject {
                             }
                         }
                         if handledByVisualRegion { continue }
-
+                        
                         textFragments.append(fragment)
                     }
                 }
-
+                
                 // ═══════════════════════════════════════════
                 // STAGE 3: 佈局分析引擎 → 基於 YOLO 區塊的幾何重組
                 // ═══════════════════════════════════════════
-
+                
                 print("📝 第 \(pageIndex + 1) 頁 PDFKit: \(textFragments.count) 文字行")
-
+                
                 var paragraphs = LayoutEngine.processWithLayoutBlocks(
                     fragments: textFragments,
                     blocks: filteredObs,
                     pageWidth: scaledSize.width,
                     pageHeight: scaledSize.height
                 )
-
+                
                 // ═══════════════════════════════════════════
                 // STAGE 4: 語意分類 → 頁眉/頁腳/頁碼自動丟棄
                 // ═══════════════════════════════════════════
-
+                
                 SemanticClassifier.classify(blocks: &paragraphs, pageHeight: scaledSize.height, styleRegistry: styleRegistry)
-
-
+                
+                
                 // 📊 日誌輸出
                 let roleBreakdown = Dictionary(grouping: paragraphs, by: { $0.role })
                     .mapValues { $0.count }
                     .map { "\($0.key.rawValue):\($0.value)" }
                     .joined(separator: ", ")
                 print("🏠 第 \(pageIndex + 1) 頁 分類: \(paragraphs.count) 段落 [​\(roleBreakdown)]")
-
+                
                 // ═══════════════════════════════════════════
                 // STAGE 5: 跨頁續接與分段修剪
                 // ═══════════════════════════════════════════
-
+                
                 // 1. 處理上一頁遺留的未完成段落
                 if let continuation = pendingContinuation {
                     if let firstValidIdx = paragraphs.firstIndex(where: { !SemanticClassifier.shouldDrop($0.role) }) {
@@ -309,29 +311,29 @@ class BatchProcessor: ObservableObject {
                         // 這一頁沒有有效段落，暫且保留 continuation (或直接丟棄)
                     }
                 }
-
+                
                 // 2. 擷取這一頁最後一個可能未完成的段落
                 if let lastValidIdx = paragraphs.lastIndex(where: { !SemanticClassifier.shouldDrop($0.role) }),
                    paragraphs[lastValidIdx].role == .body {
                     let trimmed = paragraphs[lastValidIdx].unifiedText.trimmingCharacters(in: .whitespacesAndNewlines)
                     let endsWithTerminator = trimmed.hasSuffix(".") || trimmed.hasSuffix("。") ||
-                                             trimmed.hasSuffix("!") || trimmed.hasSuffix("！") ||
-                                             trimmed.hasSuffix("?") || trimmed.hasSuffix("？") ||
-                                             trimmed.hasSuffix(":") || trimmed.hasSuffix("：")
+                    trimmed.hasSuffix("!") || trimmed.hasSuffix("！") ||
+                    trimmed.hasSuffix("?") || trimmed.hasSuffix("？") ||
+                    trimmed.hasSuffix(":") || trimmed.hasSuffix("：")
                     // 防呆：如果是極短行，或是列表項，就不視為待續接
                     if !endsWithTerminator && trimmed.count > 20 {
                         pendingContinuation = trimmed
                         paragraphs.remove(at: lastValidIdx)
                     }
                 }
-
+                
                 // ═══════════════════════════════════════════
                 // STAGE 6: 組裝 Markdown 與智慧分章
                 // ═══════════════════════════════════════════
-
+                
                 var pageMD = ""
                 var rawTextForLLM = ""
-
+                
                 // 視覺區域 → 圖片裁切 (按 Y 位置排序)
                 let sortedVisuals = zip(visualRegions.indices, visualRegions).sorted { $0.1.rect.minY < $1.1.rect.minY }
                 for (indexInPage, (originalIndex, region)) in sortedVisuals.enumerated() {
@@ -352,11 +354,11 @@ class BatchProcessor: ObservableObject {
                         }
                     }
                 }
-
+                
                 // 文字段落 → Markdown
                 for block in paragraphs {
                     if SemanticClassifier.shouldDrop(block.role) { continue }
-
+                    
                     // 📖 擷取文件標題
                     if block.role == .title {
                         let titleText = block.unifiedText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -367,13 +369,13 @@ class BatchProcessor: ObservableObject {
                             continue
                         }
                     }
-
+                    
                     let md = SemanticClassifier.toMarkdown(block: block)
                     if !md.isEmpty {
                         rawTextForLLM += md
                     }
                 }
-
+                
                 if !rawTextForLLM.isEmpty {
 #if !CLI_MODE
                     if AppSettings.shared.useAI {
@@ -388,7 +390,7 @@ class BatchProcessor: ObservableObject {
                     pageMD += rawTextForLLM
 #endif
                 }
-
+                
                 // 📖 智慧分章
                 if pageIndex > 0 {
                     if let firstBlock = paragraphs.first(where: { !SemanticClassifier.shouldDrop($0.role) }),
@@ -410,26 +412,26 @@ class BatchProcessor: ObservableObject {
                         fullMarkdown += "<CHAPTER_SPLIT>\n\n"
                     }
                 }
-
+                
                 fullMarkdown += pageMD + "---\n\n"
-
+                
                 // 🧹 即時釋放記憶體
                 rawImage = nil
                 cgImg = nil
-
+                
                 let currentProgress = Double(pageIndex + 1) / Double(document.pageCount)
                 await MainActor.run { self.progress = currentProgress }
                 
                 await self.activityTracker.update(progress: currentProgress, message: "Processing page \(pageIndex + 1)")
             }
-
+            
             // 🚀 完成所有頁面後，進行智慧路由打包
             // 📖 決定最終書名：PDF 元資料 → 第一個 .title 區塊 → 預設名稱
             let bookTitle = detectedTitle ?? "Libri-AI_轉譯報告"
-
+            
             // 在 Markdown 最前面插入書名標題 (只有一份，不會重複)
             fullMarkdown = "# \(bookTitle)\n\n" + fullMarkdown
-
+            
             // 安全檔名：移除不安全字元
             let safeFileName = bookTitle.replacingOccurrences(of: "/", with: "_")
                 .replacingOccurrences(of: ":", with: "_")
@@ -467,40 +469,42 @@ class BatchProcessor: ObservableObject {
                     await self.activityTracker.end(progress: currentProg, message: "Failed")
                 }
             } catch {
-                AppLogger.shared.error("❌ 匯出失敗: \(error)")
+                AppLogger.shared.error("❌ 匯出匯出失敗: \(error)")
                 await MainActor.run { self.isProcessing = false }
                 let currentProg = await MainActor.run { self.progress }
                 await self.activityTracker.end(progress: currentProg, message: "Failed")
             }
-        }.value
+        }
+        await self.currentTask?.value
     }
-}
-
-// MARK: - 圖片裁切工具
-
-class PDFImageExtractor {
     
-    /// 直接從已經渲染好的全頁圖片中裁切，100% 吻合 YOLO 視角！
-    static func cropAndSaveImage(from sourceImage: AppImage, cropRect: CGRect, imageName: String, assetsURL: URL) -> String? {
+    
+    // MARK: - 圖片裁切工具
+    
+    class PDFImageExtractor {
         
-        // 1. 取出底層的高畫質 CGImage
-        guard let cgImage = sourceImage.cgImage else { return nil }
-        
-        // 2. ✂️ 直接拿 YOLO 算好的絕對座標來切 (毫秒級運算)
-        guard let croppedCGImage = cgImage.cropping(to: cropRect) else { return nil }
-        
-        // 3. 轉回 AppImage 並準備存檔
-        let finalImage = AppImage(cgImage: croppedCGImage, size: cropRect.size)
-        guard let imageData = finalImage.appJPEGData(compressionQuality: 0.85) else { return nil }
-        
-        let fileURL = assetsURL.appendingPathComponent("\(imageName).jpg")
-        
-        do {
-            try imageData.write(to: fileURL)
-            return "![圖表/圖片：\(imageName)](assets/\(imageName).jpg)"
-        } catch {
-            AppLogger.shared.error("❌ 圖片存檔失敗: \(error)")
-            return nil
+        /// 直接從已經渲染好的全頁圖片中裁切，100% 吻合 YOLO 視角！
+        static func cropAndSaveImage(from sourceImage: AppImage, cropRect: CGRect, imageName: String, assetsURL: URL) -> String? {
+            
+            // 1. 取出底層的高畫質 CGImage
+            guard let cgImage = sourceImage.cgImage else { return nil }
+            
+            // 2. ✂️ 直接拿 YOLO 算好的絕對座標來切 (毫秒級運算)
+            guard let croppedCGImage = cgImage.cropping(to: cropRect) else { return nil }
+            
+            // 3. 轉回 AppImage 並準備存檔
+            let finalImage = AppImage(cgImage: croppedCGImage, size: cropRect.size)
+            guard let imageData = finalImage.appJPEGData(compressionQuality: 0.85) else { return nil }
+            
+            let fileURL = assetsURL.appendingPathComponent("\(imageName).jpg")
+            
+            do {
+                try imageData.write(to: fileURL)
+                return "![圖表/圖片：\(imageName)](assets/\(imageName).jpg)"
+            } catch {
+                AppLogger.shared.error("❌ 圖片存檔失敗: \(error)")
+                return nil
+            }
         }
     }
 }

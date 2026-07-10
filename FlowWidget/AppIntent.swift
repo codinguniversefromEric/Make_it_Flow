@@ -16,3 +16,17 @@ struct ConfigurationAppIntent: WidgetConfigurationIntent {
     @Parameter(title: "Favorite Emoji", default: "😃")
     var favoriteEmoji: String
 }
+
+@available(iOS 16.1, *)
+struct CancelConversionIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "Cancel Conversion"
+    static var description: IntentDescription = IntentDescription("Cancels the current PDF conversion task.")
+    
+    init() {}
+    
+    func perform() async throws -> some IntentResult {
+        // 發送通知給主 App 請求取消任務
+        NotificationCenter.default.post(name: Notification.Name("CancelConversionActivity"), object: nil)
+        return .result()
+    }
+}

@@ -13,6 +13,19 @@ import ActivityKit
 actor ActivityTracker {
     private var currentActivity: Activity<FlowWidgetAttributes>? = nil
     
+    init() {
+        Task {
+            for activity in Activity<FlowWidgetAttributes>.activities {
+                let finalState = FlowWidgetAttributes.ContentState(progress: 0.0, statusMessage: "Cancelled")
+                if #available(iOS 16.2, *) {
+                    await activity.end(ActivityContent(state: finalState, staleDate: nil), dismissalPolicy: .immediate)
+                } else {
+                    await activity.end(using: finalState, dismissalPolicy: .immediate)
+                }
+            }
+        }
+    }
+    
     func start(documentName: String) {
         if ActivityAuthorizationInfo().areActivitiesEnabled {
             let attributes = FlowWidgetAttributes(documentName: documentName)
@@ -57,3 +70,18 @@ actor ActivityTracker {
     func end(progress: Double, message: String) async {}
 }
 #endif
+
+import AppIntents
+
+@available(iOS 16.1, *)
+public struct CancelConversionIntent: LiveActivityIntent {
+    public static var title: LocalizedStringResource = "Cancel Conversion"
+    public static var description: IntentDescription = IntentDescription("Cancels the current PDF conversion task.")
+    
+    public init() {}
+    
+    public func perform() async throws -> some IntentResult {
+        NotificationCenter.default.post(name: Notification.Name("CancelConversionActivity"), object: nil)
+        return .result()
+    }
+}

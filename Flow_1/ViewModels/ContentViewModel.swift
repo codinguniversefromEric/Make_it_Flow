@@ -53,9 +53,13 @@ class ContentViewModel: ObservableObject {
             self?.objectWillChange.send()
         }.store(in: &cancellables)
         
-        settings.objectWillChange.sink { [weak self] _ in
-            self?.objectWillChange.send()
-        }.store(in: &cancellables)
+        NotificationCenter.default.publisher(for: Notification.Name("CancelConversionActivity"))
+            .sink { [weak self] _ in
+                Task { @MainActor in
+                    self?.batchProcessor.cancel()
+                }
+            }
+            .store(in: &cancellables)
     }
     
     // MARK: - Business Logic

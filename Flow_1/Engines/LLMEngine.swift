@@ -81,10 +81,11 @@ class LLMEngine: ObservableObject {
 
     // MARK: - 核心功能：語意修復
 
-    @MainActor
     func refineMarkdown(rawText: String) async -> String {
-        self.isProcessing = true
-        self.statusMessage = "Refining text..."
+        await MainActor.run {
+            self.isProcessing = true
+            self.statusMessage = "Refining text..."
+        }
 
         let result: String
         let engineName: String
@@ -110,8 +111,10 @@ class LLMEngine: ObservableObject {
         #endif
 
         print("✅ LLM 引擎: \(engineName) 完成 (輸出 \(result.count) 字元)")
-        self.statusMessage = isAIAvailable ? "Apple Intelligence Ready (on-device)" : "Native Engine Ready"
-        self.isProcessing = false
+        await MainActor.run {
+            self.statusMessage = isAIAvailable ? "Apple Intelligence Ready (on-device)" : "Native Engine Ready"
+            self.isProcessing = false
+        }
         return result
     }
 
