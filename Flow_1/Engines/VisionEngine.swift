@@ -12,10 +12,9 @@ import Combine
 
 // MARK: - 可用的 AI 模型清單
 public enum VisionModelType: String, CaseIterable, Identifiable {
-    case auto = "Auto (RAM Based)"
     case yoloStandard = "YOLO Standard (best)"
     case yoloFast = "YOLO Fast (best_conf0.1)"
-    case yoloDocLayNet = "YOLO DocLayNet (v11s)"
+    case yoloDocLayNet = "YOLO DocLayNet (v10s)"
     case surya = "Surya Vision (FP16)"
     
     public var id: String { self.rawValue }
@@ -49,18 +48,6 @@ public class LayoutVisionManager: ObservableObject {
         let selectedModel = AppSettings.shared.selectedModel
         
         switch selectedModel {
-        case .auto:
-            let capability = MemoryManager.shared.currentCapability
-            switch capability {
-            case .highEnd:
-                self.activeParser = SuryaLayoutParser()
-                self.currentParserName = "Auto: Surya Engine (High-End)"
-                AppLogger.shared.info("✅ 視覺引擎已切換為：Surya (Auto/High-Accuracy)")
-            case .lowEnd:
-                self.activeParser = YOLOLayoutParser(modelName: "yolov11s-doclaynet")
-                self.currentParserName = "Auto: YOLO DocLayNet (Auto/Fallback)"
-                AppLogger.shared.info("✅ 視覺引擎已切換為：YOLO DocLayNet (Auto/Fallback)")
-            }
         case .yoloStandard:
             self.activeParser = YOLOLayoutParser(modelName: "best")
             self.currentParserName = "Manual: YOLO Standard"
@@ -70,8 +57,8 @@ public class LayoutVisionManager: ObservableObject {
             self.currentParserName = "Manual: YOLO Fast"
             AppLogger.shared.info("✅ 視覺引擎已切換為：YOLO Fast (Manual)")
         case .yoloDocLayNet:
-            self.activeParser = YOLOLayoutParser(modelName: "yolov11s-doclaynet")
-            self.currentParserName = "Manual: YOLO DocLayNet (v11s)"
+            self.activeParser = YOLOLayoutParser(modelName: "yolov10s_best")
+            self.currentParserName = "Manual: YOLO DocLayNet (v10s)"
             AppLogger.shared.info("✅ 視覺引擎已切換為：YOLO DocLayNet (Manual)")
         case .surya:
             self.activeParser = SuryaLayoutParser()
@@ -243,6 +230,17 @@ class YOLOLayoutParser: LayoutParser {
                         let strideBox = yolo10.strides[1].intValue
                         let confThreshold: Float32 = 0.25
                         
+                        // Vision's .scaleFit pads the image to fit 1024x1024.
+                        // Coordinates (x1, y1, x2, y2) are in the 1024x1024 space.
+                        // We must map them back to the original tileImage coordinate space [0, 1].
+                        let tileW = CGFloat(tileImage.width)
+                        let tileH = CGFloat(tileImage.height)
+                        let scale = min(1024.0 / tileW, 1024.0 / tileH)
+                        let scaledW = tileW * scale
+                        let scaledH = tileH * scale
+                        let padX = (1024.0 - scaledW) / 2.0
+                        let padY = (1024.0 - scaledH) / 2.0
+                        
                         for b in 0..<numBoxes {
                             let conf = pointer[b * strideBox + 4]
                             if conf > confThreshold {
@@ -252,15 +250,28 @@ class YOLOLayoutParser: LayoutParser {
                                 let y2 = pointer[b * strideBox + 3]
                                 let classIdx = Int(pointer[b * strideBox + 5])
                                 
-                                // Coordinates are usually absolute to imgsz [0, 1024].
-                                let nx = (x1 + x2) / 2.0 / 1024.0
-                                let ny = (y1 + y2) / 2.0 / 1024.0
-                                let nw = (x2 - x1) / 1024.0
-                                let nh = (y2 - y1) / 1024.0
+                                // Remove padding and normalize to [0, 1] relative to tileImage
+                                let nx1 = CGFloat(x1 - Float32(padX)) / scaledW
+                                let ny1 = CGFloat(y1 - Float32(padY)) / scaledH
+                                let nx2 = CGFloat(x2 - Float32(padX)) / scaledW
+                                let ny2 = CGFloat(y2 - Float32(padY)) / scaledH
                                 
-                                let minX = CGFloat(nx - nw / 2)
-                                let minY = CGFloat(1.0 - (ny + nh / 2))
-                                let localRect = CGRect(x: minX, y: minY, width: CGFloat(nw), height: CGFloat(nh))
+                                // Clamp to valid area
+                                let minX_norm = max(0.0, min(1.0, nx1))
+                                let maxX_norm = max(0.0, min(1.0, nx2))
+                                let minY_norm = max(0.0, min(1.0, ny1))
+                                let maxY_norm = max(0.0, min(1.0, ny2))
+                                
+                                let nw = maxX_norm - minX_norm
+                                let nh = maxY_norm - minY_norm
+                                
+                                // Ignore invalid boxes
+                                if nw <= 0 || nh <= 0 { continue }
+                                
+                                // Convert to Core Graphics coordinate system (Y inverted)
+                                let minY = 1.0 - maxY_norm
+                                let localRect = CGRect(x: minX_norm, y: minY, width: nw, height: nh)
+                                
                                 let globalBoundingBox = self.toGlobalBoundingBox(localRect: localRect, tileRect: tileRect, fullWidth: fullWidth, fullHeight: fullHeight)
                                 
                                 let label = classIdx < classes.count ? classes[classIdx] : "Unknown"
@@ -322,7 +333,7 @@ class YOLOLayoutParser: LayoutParser {
                 continuation.resume(returning: blocks)
             }
             
-            request.imageCropAndScaleOption = .scaleFill
+            request.imageCropAndScaleOption = .scaleFit
             
             let handler = VNImageRequestHandler(cgImage: tileImage, options: [:])
             do {

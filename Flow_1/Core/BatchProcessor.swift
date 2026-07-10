@@ -233,16 +233,25 @@ class BatchProcessor: ObservableObject {
                             isBold: isBold
                         )
                         
-                        // 🔍 排除落在視覺區域 (圖片/表格) 內的文字行，但保留表格內的碎片用於結構重建
-                        let lineMid = CGPoint(x: displayRect.midX, y: displayRect.midY)
+                        // 🔍 排除落在視覺區域 (圖片/表格/公式) 內的文字行，但保留表格內的碎片用於結構重建
                         var handledByVisualRegion = false
+                        let lineArea = displayRect.width * displayRect.height
+                        
                         for (index, region) in visualRegions.enumerated() {
-                            if region.rect.contains(lineMid) {
-                                if region.label == "Table" {
-                                    tableFragments[index, default: []].append(fragment)
+                            let intersection = region.rect.intersection(displayRect)
+                            if !intersection.isNull {
+                                let intersectionArea = intersection.width * intersection.height
+                                // 如果重疊面積超過文字行面積的 40%，或者文字中心點落在擴大一點的區域內
+                                let expandedRegion = region.rect.insetBy(dx: -5, dy: -5)
+                                let lineMid = CGPoint(x: displayRect.midX, y: displayRect.midY)
+                                
+                                if (lineArea > 0 && intersectionArea / lineArea > 0.4) || expandedRegion.contains(lineMid) {
+                                    if region.label == "Table" {
+                                        tableFragments[index, default: []].append(fragment)
+                                    }
+                                    handledByVisualRegion = true
+                                    break
                                 }
-                                handledByVisualRegion = true
-                                break
                             }
                         }
                         if handledByVisualRegion { continue }

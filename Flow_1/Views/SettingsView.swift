@@ -73,23 +73,6 @@ struct SettingsView: View {
                         }
                         .pickerStyle(.navigationLink)
                         
-                        if settings.selectedModel != .auto {
-                            HStack {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundColor(.orange)
-                                Text("Manual override is active. Automatic OOM memory protection may be bypassed.")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        } else {
-                            HStack {
-                                Spacer()
-                                Text("Current: \(LayoutVisionManager.shared.currentParserName)")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        
                         // 開發者部分
                         Toggle(isOn: $settings.debugMode) {
                             Label("Developer Diagnostics", systemImage: "ladybug")

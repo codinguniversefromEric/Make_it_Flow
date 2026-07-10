@@ -64,7 +64,8 @@ To understand the trade-offs between different models tested during the developm
 | Model | Framework | Size | Inference Time (M2) | Strengths / Trade-offs |
 |-------|-----------|------|-----------------------------------|-----------|
 | **YOLOv8n (Fast)** | CoreML | ~12MB | Ultra-fast (< 50ms) | Extremely lightweight. Good for mobile apps. Detects basic text, titles, and headers well. |
-| **YOLOv11s (DocLayNet)** | CoreML | ~35MB | Fast (~100ms) | Higher mAP. Better boundary precision for complex tables and figures. Requires raw tensor post-processing when NMS is stripped. |
+| **YOLOv8s (Standard)** | CoreML | ~22MB | Fast (~80ms) | The most stable and robust model for layout detection in real-world complex PDFs. Highly recommended. |
+| **YOLOv10s (DocLayNet)** | CoreML | ~31MB | Fast (~90ms) | Newer architecture (NMS-free), but practically struggles with some edge cases in sorting compared to the standard YOLOv8s. |
 | **Marker Pipeline** | PyTorch/ONNX | > 1GB | Slow (Desktop/Cloud) | State-of-the-Art accuracy. End-to-end pipeline generating full markdown with perfect formula parsing, but too heavy for iOS on-device. |
 
 *Note: Make it Flow intentionally chooses the CoreML YOLO models to guarantee fast, 100% on-device offline processing without draining the battery.*

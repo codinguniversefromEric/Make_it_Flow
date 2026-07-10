@@ -14,7 +14,7 @@ class AppSettings: ObservableObject {
     
     // MARK: - 開發者設定開關
     // 💡 只要將下面這行改為 false，設定頁面的開發者選項就會消失，並且會自動強制關閉 Debug 模式。
-    static let showDeveloperSettings = false
+    static let showDeveloperSettings = true
     
     // MARK: - Persisted Keys
     private enum Keys {
@@ -44,8 +44,8 @@ class AppSettings: ObservableObject {
     }
     
     private init() {
-        let savedModelRaw = UserDefaults.standard.string(forKey: Keys.selectedModel) ?? VisionModelType.auto.rawValue
-        self.selectedModel = VisionModelType(rawValue: savedModelRaw) ?? .auto
+        let savedModelRaw = UserDefaults.standard.string(forKey: Keys.selectedModel) ?? VisionModelType.yoloDocLayNet.rawValue
+        self.selectedModel = VisionModelType(rawValue: savedModelRaw) ?? .yoloDocLayNet
         
         self.useAI = UserDefaults.standard.object(forKey: Keys.useAI) as? Bool ?? true
         

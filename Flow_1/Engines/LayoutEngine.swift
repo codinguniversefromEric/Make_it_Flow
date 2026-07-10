@@ -47,13 +47,22 @@ enum LayoutEngine {
         var unassignedFragments: [TextFragment] = []
         
         for frag in fragments {
+            let fragArea = frag.bounds.width * frag.bounds.height
             let fragMid = CGPoint(x: frag.bounds.midX, y: frag.bounds.midY)
             
             if let matchedBlock = sortedBlocks.first(where: {
                 let rect = VNImageRectForNormalizedRect($0.boundingBox, Int(pageWidth), Int(pageHeight))
                 let invertedRect = CGRect(x: rect.minX, y: pageHeight - rect.maxY, width: rect.width, height: rect.height)
-                let expanded = invertedRect.insetBy(dx: -5, dy: -5)
-                return expanded.contains(fragMid)
+                
+                let intersection = invertedRect.intersection(frag.bounds)
+                if !intersection.isNull {
+                    let intersectionArea = intersection.width * intersection.height
+                    let expanded = invertedRect.insetBy(dx: -5, dy: -5)
+                    return (fragArea > 0 && intersectionArea / fragArea > 0.4) || expanded.contains(fragMid)
+                } else {
+                    let expanded = invertedRect.insetBy(dx: -5, dy: -5)
+                    return expanded.contains(fragMid)
+                }
             }) {
                 blockFragmentsMap[matchedBlock.id, default: []].append(frag)
             } else {
@@ -74,20 +83,101 @@ enum LayoutEngine {
         if !unassignedFragments.isEmpty {
             let heuristicParagraphs = processPage(fragments: unassignedFragments, pageWidth: pageWidth, pageHeight: pageHeight)
             finalParagraphs.append(contentsOf: heuristicParagraphs)
-            
-            // 將兩者混合後，依照嚴格的幾何位置進行最終大排序 (由上而下，同水平則由左而右)
-            finalParagraphs.sort { 
-                if abs($0.bounds.minY - $1.bounds.minY) > 20 { 
-                    return $0.bounds.minY < $1.bounds.minY 
-                }
-                return $0.bounds.minX < $1.bounds.minX
-            }
         }
-
-        return finalParagraphs
+            
+        // 將兩者混合後，使用標準的閱讀順序排序 (分區段 -> 分欄 -> 排序)
+        return sortParagraphBlocks(finalParagraphs, pageWidth: pageWidth)
     }
 
-
+    /// 對最終的 ParagraphBlock 進行閱讀順序排序
+    private static func sortParagraphBlocks(_ blocks: [ParagraphBlock], pageWidth: CGFloat) -> [ParagraphBlock] {
+        guard blocks.count > 1 else { return blocks }
+        
+        let ySorted = blocks.sorted { $0.bounds.minY < $1.bounds.minY }
+        print("🔍 ySorted blocks (\(ySorted.count)):")
+        for b in ySorted {
+            let text = b.unifiedText.replacingOccurrences(of: "\n", with: " ").prefix(30)
+            print("  minY: \(String(format: "%.1f", b.bounds.minY)), text: \(text)")
+        }
+        
+        var regions: [[ParagraphBlock]] = []
+        var currentRegion: [ParagraphBlock] = [ySorted[0]]
+        var currentMaxY = ySorted[0].bounds.maxY
+        let regionBreakGap = pageWidth * 0.15
+        
+        for i in 1..<ySorted.count {
+            let curr = ySorted[i]
+            let gap = curr.bounds.minY - currentMaxY
+            
+            if gap > regionBreakGap {
+                regions.append(currentRegion)
+                currentRegion = [curr]
+                currentMaxY = curr.bounds.maxY
+            } else {
+                currentRegion.append(curr)
+                currentMaxY = max(currentMaxY, curr.bounds.maxY)
+            }
+        }
+        if !currentRegion.isEmpty { regions.append(currentRegion) }
+        
+        var finalSorted: [ParagraphBlock] = []
+        
+        for region in regions {
+            guard region.count > 1 else {
+                finalSorted.append(contentsOf: region)
+                continue
+            }
+            
+            var columns: [[ParagraphBlock]] = []
+            let xSorted = region.sorted { $0.bounds.minX < $1.bounds.minX }
+            
+            var currentColumn: [ParagraphBlock] = [xSorted[0]]
+            var currentMaxX = xSorted[0].bounds.maxX
+            let columnGutterGap = pageWidth * 0.025
+            
+            for i in 1..<xSorted.count {
+            let curr = xSorted[i]
+            let prev = xSorted[i-1]
+            let xJump = curr.bounds.minX - prev.bounds.minX
+            
+            if xJump > pageWidth * 0.15 {
+                    let minX = currentColumn.map { $0.bounds.minX }.min()!
+                    let maxX = currentColumn.map { $0.bounds.maxX }.max()!
+                    let colWidth = maxX - minX
+                    
+                    if colWidth < (pageWidth * 0.10) {
+                        currentColumn.append(curr)
+                    } else {
+                        columns.append(currentColumn)
+                        currentColumn = [curr]
+                    }
+                } else {
+                    currentColumn.append(curr)
+                }
+            }
+            if !currentColumn.isEmpty { columns.append(currentColumn) }
+            
+            for col in columns {
+                let xySortedCol = col.sorted { a, b in
+                    let yA = round(a.bounds.minY / 15.0)
+                    let yB = round(b.bounds.minY / 15.0)
+                    if yA == yB {
+                        return a.bounds.minX < b.bounds.minX
+                    }
+                    return yA < yB
+                }
+                finalSorted.append(contentsOf: xySortedCol)
+            }
+        }
+        
+        print("🔍 finalSorted blocks (\(finalSorted.count)):")
+        for b in finalSorted {
+            let text = b.unifiedText.replacingOccurrences(of: "\n", with: " ").prefix(30)
+            print("  minY: \(String(format: "%.1f", b.bounds.minY)), text: \(text)")
+        }
+        
+        return finalSorted
+    }
     // MARK: - 2. 閱讀順序演算法 (XY-Cut / Projection Profile)
 
     /// 根據人類閱讀邏輯 (先上後下，先左後右)，對 YOLO 區塊進行幾何排序
@@ -106,9 +196,7 @@ enum LayoutEngine {
         var regions: [[(block: LayoutBlock, rect: CGRect)]] = []
         var currentRegion: [(block: LayoutBlock, rect: CGRect)] = [ySorted[0]]
         var currentMaxY = ySorted[0].rect.maxY
-        
-        // 假設預設字體大小約 12pt，Y 軸巨大斷層閾值設為 40pt (跨越多行距的明顯區塊)
-        let regionBreakGap: CGFloat = 40.0
+        let regionBreakGap = pageWidth * 0.15
         
         for i in 1..<ySorted.count {
             let curr = ySorted[i]
@@ -146,37 +234,48 @@ enum LayoutEngine {
         // 投射到 X 軸，找出欄位
         var columns: [[(block: LayoutBlock, rect: CGRect)]] = []
         
-        // 將區塊依 X 座標由左至右排序，以利尋找 Gutter
+        // 將區塊依 X 座標由左至右排序
         let xSorted = region.sorted { $0.rect.minX < $1.rect.minX }
         
         var currentColumn: [(block: LayoutBlock, rect: CGRect)] = [xSorted[0]]
         var currentMaxX = xSorted[0].rect.maxX
-        
-        // Gutter 閾值：水平距離超過頁寬的 3% 視為換欄
-        let columnGutterGap = pageWidth * 0.03
+        let columnGutterGap = pageWidth * 0.025
         
         for i in 1..<xSorted.count {
             let curr = xSorted[i]
-            let xGap = curr.rect.minX - currentMaxX
+            let prev = xSorted[i-1]
+            let xJump = curr.rect.minX - prev.rect.minX
             
-            if xGap > columnGutterGap {
-                columns.append(currentColumn)
-                currentColumn = [curr]
-                currentMaxX = curr.rect.maxX
+            if xJump > pageWidth * 0.15 {
+                let minX = currentColumn.map { $0.rect.minX }.min()!
+                let colWidth = currentMaxX - minX
+                
+                if colWidth < (pageWidth * 0.10) {
+                    currentColumn.append(curr)
+                } else {
+                    columns.append(currentColumn)
+                    currentColumn = [curr]
+                }
             } else {
                 currentColumn.append(curr)
-                currentMaxX = max(currentMaxX, curr.rect.maxX)
             }
         }
         if !currentColumn.isEmpty {
             columns.append(currentColumn)
         }
         
-        // 對每一欄內部的區塊進行 Y 軸排序 (由上而下)
+        // 對每一欄內部的區塊進行 Y 軸排序 (由上而下)；若 Y 座標極為接近(同一行)，則依 X 軸排序(由左而右)
         var sortedRegion: [(block: LayoutBlock, rect: CGRect)] = []
         for col in columns {
-            let ySortedCol = col.sorted { $0.rect.minY < $1.rect.minY }
-            sortedRegion.append(contentsOf: ySortedCol)
+            let xySortedCol = col.sorted { a, b in
+                let yA = round(a.rect.minY / 15.0)
+                let yB = round(b.rect.minY / 15.0)
+                if yA == yB {
+                    return a.rect.minX < b.rect.minX
+                }
+                return yA < yB
+            }
+            sortedRegion.append(contentsOf: xySortedCol)
         }
         
         return sortedRegion
