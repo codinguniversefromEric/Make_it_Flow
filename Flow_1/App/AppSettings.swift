@@ -12,6 +12,10 @@ import Combine
 class AppSettings: ObservableObject {
     static let shared = AppSettings()
     
+    // MARK: - 開發者設定開關
+    // 💡 只要將下面這行改為 false，設定頁面的開發者選項就會消失，並且會自動強制關閉 Debug 模式。
+    static let showDeveloperSettings = false
+    
     // MARK: - Persisted Keys
     private enum Keys {
         static let selectedModel = "selectedVisionModel"
@@ -44,6 +48,12 @@ class AppSettings: ObservableObject {
         self.selectedModel = VisionModelType(rawValue: savedModelRaw) ?? .auto
         
         self.useAI = UserDefaults.standard.object(forKey: Keys.useAI) as? Bool ?? true
-        self.debugMode = UserDefaults.standard.object(forKey: Keys.debugMode) as? Bool ?? false
+        
+        if Self.showDeveloperSettings {
+            self.debugMode = UserDefaults.standard.object(forKey: Keys.debugMode) as? Bool ?? false
+        } else {
+            self.debugMode = false
+            UserDefaults.standard.set(false, forKey: Keys.debugMode)
+        }
     }
 }

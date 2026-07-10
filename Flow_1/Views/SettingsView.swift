@@ -12,7 +12,6 @@ struct SettingsView: View {
     @ObservedObject var llmEngine = LLMEngine.shared
     @ObservedObject var subscriptionManager = SubscriptionManager.shared
     @Environment(\.dismiss) private var dismiss
-    
     @State private var showPaywall = false
     
     var body: some View {
@@ -22,8 +21,8 @@ struct SettingsView: View {
                 Section {
                     if subscriptionManager.isPremium {
                         HStack {
-                            Label("Flow Premium", systemImage: "star.fill")
-                                .foregroundColor(.yellow)
+                            Label("Flow Premium", systemImage: "star")
+                                .foregroundColor(.accentColor)
                             Spacer()
                             Text("Active")
                                 .foregroundColor(.secondary)
@@ -32,84 +31,81 @@ struct SettingsView: View {
                         Button {
                             showPaywall = true
                         } label: {
-                            Label("Upgrade to Premium", systemImage: "crown.fill")
-                                .foregroundColor(.purple)
+                            Label("remove ads", systemImage: "eraser")
+                                .foregroundColor(.accentColor)
                                 .font(.headline)
                         }
                     }
                 }
                 
                 // MARK: - AI 引擎
-                Section {
-                    HStack {
-                        Label("Semantic Engine", systemImage: "brain.head.profile")
-                        Spacer()
-                        Text(llmEngine.statusMessage)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                if llmEngine.isAIAvailable {
+                    Section {
+//                        HStack {
+//                            Label("Engine", systemImage: "doc.text.fill.viewfinder")
+//                            Spacer()
+//                            Text(llmEngine.statusMessage)
+//                                .font(.caption)
+//                                .foregroundStyle(.secondary)
+//                        }
+                        
+                        Toggle(isOn: $settings.useAI) {
+                            Label("AI Enhance", systemImage: "apple.intelligence")
+                        }
+                        .accessibilityLabel("AI Enhancement")
+                    } header: {
+                        Text("APPLE INTELLIGENCE")
+                    } footer: {
+                        Text("When enabled, AI refines content.")
                     }
-                    
-                    Toggle(isOn: $settings.useAI) {
-                        Label("Enable AI Enhancement", systemImage: "wand.and.stars")
-                    }
-                    .tint(.purple)
-                    .accessibilityLabel("AI Enhancement")
-                    .accessibilityHint("Toggle neural engine text refinement")
-                } header: {
-                    Text("INTELLIGENCE")
-                } footer: {
-                    Text("When enabled, the neural engine refines extracted text for flawless semantic flow and continuity.")
                 }
                 
-                // MARK: - 視覺模型
-                Section {
-                    Picker(selection: $settings.selectedModel) {
-                        ForEach(VisionModelType.allCases) { model in
-                            Text(model.rawValue).tag(model)
+                // MARK: - 開發者與視覺模型 (合併)
+                if AppSettings.showDeveloperSettings {
+                    Section {
+                        // Vision 部分
+                        Picker(selection: $settings.selectedModel) {
+                            ForEach(VisionModelType.allCases) { model in
+                                Text(model.rawValue).tag(model)
+                            }
+                        } label: {
+                            Label("Vision Architecture", systemImage: "eye.trianglebadge.exclamationmark")
                         }
-                    } label: {
-                        Label("Vision Architecture", systemImage: "eye.trianglebadge.exclamationmark")
-                    }
-                    .pickerStyle(.navigationLink)
-                    
-                    if settings.selectedModel != .auto {
-                        HStack {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.orange)
-                            Text("Manual override is active. Automatic OOM memory protection may be bypassed.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                        .pickerStyle(.navigationLink)
+                        
+                        if settings.selectedModel != .auto {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.orange)
+                                Text("Manual override is active. Automatic OOM memory protection may be bypassed.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        } else {
+                            HStack {
+                                Spacer()
+                                Text("Current: \(LayoutVisionManager.shared.currentParserName)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
-                    } else {
-                        HStack {
-                            Spacer()
-                            Text("Current: \(LayoutVisionManager.shared.currentParserName)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                        
+                        // 開發者部分
+                        Toggle(isOn: $settings.debugMode) {
+                            Label("Developer Diagnostics", systemImage: "ladybug")
                         }
+                        .tint(.orange)
+                        .accessibilityLabel("Developer Diagnostics")
+                        .accessibilityHint("Toggle visual diagnostic overlays showing YOLO bounding boxes")
+                        
+                        NavigationLink(destination: LogViewerView()) {
+                            Label("View App Logs", systemImage: "scroll")
+                        }
+                    } header: {
+                        Text("DEVELOPER & VISION")
+                    } footer: {
+                        Text("Select Auto to dynamically choose the best engine based on device memory. Developer diagnostics enable visual overlays rendering YOLO bounding boxes directly on the document.")
                     }
-                } header: {
-                    Text("VISION")
-                } footer: {
-                    Text("Select Auto to dynamically choose the best engine based on device memory and prevent OOM crashes.")
-                }
-                
-                // MARK: - 開發者
-                Section {
-                    Toggle(isOn: $settings.debugMode) {
-                        Label("Developer Diagnostics", systemImage: "ladybug")
-                    }
-                    .tint(.orange)
-                    .accessibilityLabel("Developer Diagnostics")
-                    .accessibilityHint("Toggle visual diagnostic overlays showing YOLO bounding boxes")
-                    
-                    NavigationLink(destination: LogViewerView()) {
-                        Label("View App Logs", systemImage: "scroll")
-                    }
-                } header: {
-                    Text("DEVELOPER")
-                } footer: {
-                    Text("Enables visual diagnostic overlays, rendering YOLO bounding boxes and semantic classifications directly on the document.")
                 }
                 
                 // MARK: - 關於
@@ -118,12 +114,6 @@ struct SettingsView: View {
                         Label("Version", systemImage: "info.circle")
                         Spacer()
                         Text("1.0.0")
-                            .foregroundStyle(.secondary)
-                    }
-                    HStack {
-                        Label("Core Engine", systemImage: "gearshape.2")
-                        Spacer()
-                        Text("Libri-AI Hybrid")
                             .foregroundStyle(.secondary)
                     }
                     

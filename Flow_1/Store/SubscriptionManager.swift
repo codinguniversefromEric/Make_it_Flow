@@ -18,7 +18,7 @@ class SubscriptionManager: ObservableObject {
         var requirePayment = false
         
         // 💡 只要把下面這行「註解掉」 (在開頭加上 //)，App 就會直接解鎖全部功能，沒有付費牆。
-//        requirePayment = true
+        requirePayment = true
         
         return !requirePayment
     }
@@ -35,26 +35,9 @@ class SubscriptionManager: ObservableObject {
     @Published var isFetchingProducts = false
     
     // MARK: - Freemium Quota
-    private let initialFreeConversions = 3
-    private let freeConversionsKey = "freeConversionsLeft"
-    
-    @Published var freeConversionsLeft: Int {
-        didSet {
-            UserDefaults.standard.set(freeConversionsLeft, forKey: freeConversionsKey)
-        }
-    }
-    
     private var updatesTask: Task<Void, Never>? = nil
     
     private init() {
-        // Load free conversions quota
-        if UserDefaults.standard.object(forKey: freeConversionsKey) == nil {
-            self.freeConversionsLeft = initialFreeConversions
-            UserDefaults.standard.set(initialFreeConversions, forKey: freeConversionsKey)
-        } else {
-            self.freeConversionsLeft = UserDefaults.standard.integer(forKey: freeConversionsKey)
-        }
-        
         updatesTask = listenForTransactions()
         Task {
             await fetchProducts()
@@ -64,20 +47,6 @@ class SubscriptionManager: ObservableObject {
     
     deinit {
         updatesTask?.cancel()
-    }
-    
-    // MARK: - Quota Management
-    
-    /// Called when a PDF is successfully converted.
-    func recordConversion() {
-        if !isPremium && freeConversionsLeft > 0 {
-            freeConversionsLeft -= 1
-        }
-    }
-    
-    /// Check if user can convert (either premium or has quota)
-    func canConvert() -> Bool {
-        return isPremium || freeConversionsLeft > 0
     }
     
     // MARK: - StoreKit 2 Methods

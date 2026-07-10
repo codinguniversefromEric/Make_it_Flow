@@ -44,6 +44,13 @@
     "swift-dependencies": "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI.build/LayoutEngine.swiftdeps",
     "diagnostics": "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI.build/LayoutEngine.dia"
   },
+  "/Users/giyoshimiken/Documents/Flow_1/Flow_CLI/MemoryManager.swift": {
+    "dependencies": "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI.build/MemoryManager.d",
+    "object": "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI.build/MemoryManager.swift.o",
+    "swiftmodule": "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI.build/MemoryManager~partial.swiftmodule",
+    "swift-dependencies": "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI.build/MemoryManager.swiftdeps",
+    "diagnostics": "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI.build/MemoryManager.dia"
+  },
   "/Users/giyoshimiken/Documents/Flow_1/Flow_CLI/SemanticClassifier.swift": {
     "dependencies": "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI.build/SemanticClassifier.d",
     "object": "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI.build/SemanticClassifier.swift.o",

@@ -23,28 +23,40 @@ struct ContentView: View {
             Color(UIColor.systemGroupedBackground)
                 .ignoresSafeArea()
             
-            // 1. 原生導航列與主內容
-            NavigationStack {
-                mainContentView
-                    .toolbar {
-                        ToolbarItem(placement: .topBarLeading) {
-                            Text("flow")
-                                .font(.system(size: 36, weight: .black, design: .rounded))
-                                .tracking(-1.5)
-                                .foregroundColor(.primary)
+            VStack(spacing: 0) {
+                // 1. 原生導航列與主內容
+                NavigationStack {
+                    mainContentView
+                        .toolbar {
+                            ToolbarItem(placement: .topBarLeading) {
+                                Button { vm.isSettingsPresented = true } label: { Label("Preferences", systemImage: "slider.horizontal.3") }
+                                    .accessibilityLabel("Settings")
+                                    .accessibilityHint("Open app preferences")
+                            }
+                            ToolbarItem(placement: .principal) {
+                                Text("flow")
+                                    .font(.system(size: 36, weight: .black, design: .rounded))
+                                    .tracking(-1.5)
+                                    .foregroundColor(.primary)
+                            }
+                            ToolbarItemGroup(placement: .topBarTrailing) {
+                                Button(action: { vm.showFilePicker = true }) {
+                                    Image(systemName: "plus")
+                                        .font(.headline)
+                                }
+                                .accessibilityLabel("Add PDF")
+                                .accessibilityHint("Open file picker to select a PDF for conversion")
+                            }
                         }
-                        ToolbarItemGroup(placement: .topBarTrailing) {
-                            Button { vm.isSettingsPresented = true } label: { Label("Preferences", systemImage: "slider.horizontal.3") }
-                                .accessibilityLabel("Settings")
-                                .accessibilityHint("Open app preferences")
-                        }
-                    }
-                    .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
-            }
-            
-            // 右下角懸浮按鈕 (僅在書庫或空白狀態顯示)
-            if vm.animState == .idle && vm.pdfDocument == nil {
-                fabButton
+                        .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
+                }
+                
+                // 廣告 Banner (若未付費)
+                if !vm.subscriptionManager.isPremium {
+                    AdBannerView()
+                        .frame(height: 50)
+                        .background(Color(UIColor.systemGroupedBackground))
+                }
             }
             
             // 隱藏的定位器
@@ -101,6 +113,12 @@ struct ContentView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(vm.errorMessage)
+        }
+        .fullScreenCover(isPresented: $vm.showInterstitialAd) {
+            InterstitialAdView {
+                vm.showInterstitialAd = false
+                vm.onInterstitialAdDismissed()
+            }
         }
     }
 }
@@ -259,39 +277,7 @@ extension ContentView {
         .onDrop(of: [.pdf], isTargeted: $vm.dragOver) { providers in vm.handleDrop(providers) }
     }
     
-    // 🌟 原生浮動按鈕
-    private var fabButton: some View {
-        VStack {
-            Spacer()
-            HStack {
-                Spacer()
-                Button(action: { vm.showFilePicker = true }) {
-                    Image(systemName: "plus")
-                        .font(.title2.weight(.medium))
-                        .padding(8)
-                }
-                .buttonStyle(.borderedProminent)
-                .buttonBorderShape(.circle)
-                .controlSize(.large)
-                .shadow(color: .black.opacity(0.15), radius: 6, y: 3)
-                .overlay(alignment: .topTrailing) {
-                    if !vm.subscriptionManager.isPremium {
-                        Text("\(vm.subscriptionManager.freeConversionsLeft)")
-                            .font(.caption2.bold())
-                            .foregroundColor(.white)
-                            .frame(width: 20, height: 20)
-                            .background(vm.subscriptionManager.freeConversionsLeft > 0 ? Color.orange : Color.red)
-                            .clipShape(Circle())
-                            .offset(x: 6, y: -6)
-                    }
-                }
-                .accessibilityLabel("Add PDF")
-                .accessibilityHint("Open file picker to select a PDF for conversion")
-                .padding(.trailing, 24).padding(.bottom, 30)
-            }
-        }
-    }
-
+    // 🌟 原生浮動按鈕 (已移除，改由右上角 ToolbarItem 處理)
     // MARK: 動畫層
     @ViewBuilder
     private var animationOverlay: some View {

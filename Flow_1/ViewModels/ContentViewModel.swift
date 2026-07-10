@@ -26,6 +26,8 @@ class ContentViewModel: ObservableObject {
     @Published var showSuccessHUD = false
     @Published var showErrorAlert = false
     @Published var errorMessage = ""
+    @Published var showInterstitialAd = false
+
     
     // MARK: - Document State
     @Published var pdfDocument: PDFDocument? = nil
@@ -84,11 +86,6 @@ class ContentViewModel: ObservableObject {
     func handlePickedPDF(url: URL) {
         showFilePicker = false
         
-        guard subscriptionManager.canConvert() else {
-            showPaywall = true
-            return
-        }
-        
         self.currentThumbnail = generatePDFThumbnail(from: url)
         withAnimation { animState = .showingThumbnail }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -131,8 +128,6 @@ class ContentViewModel: ObservableObject {
     }
     
     func finishConversion(epubURL: URL) {
-        subscriptionManager.recordConversion()
-        
         libraryStore.addItem(
             url: epubURL,
             title: epubURL.deletingPathExtension().lastPathComponent,
@@ -147,17 +142,33 @@ class ContentViewModel: ObservableObject {
                 if !settings.debugMode {
                     pdfDocument = nil
                     batchProcessor.exportedFileURL = nil
-                    showSuccessHUD = true
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
-                }
-            }
-            
-            if !settings.debugMode {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                        self.showSuccessHUD = false
+                    if !subscriptionManager.isPremium {
+                        showInterstitialAd = true
+                    } else {
+                        showSuccessHUD = true
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        scheduleHUDDismiss()
                     }
                 }
+            }
+        }
+    }
+    
+    // Call this from AdView when ad is dismissed
+    func onInterstitialAdDismissed() {
+        if !settings.debugMode {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                showSuccessHUD = true
+            }
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            scheduleHUDDismiss()
+        }
+    }
+    
+    private func scheduleHUDDismiss() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            withAnimation(.easeInOut(duration: 0.4)) {
+                self.showSuccessHUD = false
             }
         }
     }

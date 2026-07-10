@@ -61,6 +61,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/giyoshimiken/Documents/Flow_1/Flow_CLI/MemoryManager.swift"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/giyoshimiken/Documents/Flow_1/Flow_CLI/SemanticClassifier.swift"
         },
         {
@@ -114,6 +118,7 @@
         "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI.build/BatchProcessor.swift.o",
         "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI.build/CrossPlatformUI.swift.o",
         "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI.build/LayoutEngine.swift.o",
+        "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI.build/MemoryManager.swift.o",
         "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI.build/SemanticClassifier.swift.o",
         "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI.build/StyleRegistry.swift.o",
         "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI.build/TableReconstructor.swift.o",
@@ -207,6 +212,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI.build/MemoryManager.swift.o"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI.build/SemanticClassifier.swift.o"
         },
         {
@@ -250,6 +259,7 @@
         "/Users/giyoshimiken/Documents/Flow_1/Flow_CLI/BatchProcessor.swift",
         "/Users/giyoshimiken/Documents/Flow_1/Flow_CLI/CrossPlatformUI.swift",
         "/Users/giyoshimiken/Documents/Flow_1/Flow_CLI/LayoutEngine.swift",
+        "/Users/giyoshimiken/Documents/Flow_1/Flow_CLI/MemoryManager.swift",
         "/Users/giyoshimiken/Documents/Flow_1/Flow_CLI/SemanticClassifier.swift",
         "/Users/giyoshimiken/Documents/Flow_1/Flow_CLI/StyleRegistry.swift",
         "/Users/giyoshimiken/Documents/Flow_1/Flow_CLI/TableReconstructor.swift",
@@ -280,6 +290,7 @@
       "/Users/giyoshimiken/Documents/Flow_1/Flow_CLI/BatchProcessor.swift",
       "/Users/giyoshimiken/Documents/Flow_1/Flow_CLI/CrossPlatformUI.swift",
       "/Users/giyoshimiken/Documents/Flow_1/Flow_CLI/LayoutEngine.swift",
+      "/Users/giyoshimiken/Documents/Flow_1/Flow_CLI/MemoryManager.swift",
       "/Users/giyoshimiken/Documents/Flow_1/Flow_CLI/SemanticClassifier.swift",
       "/Users/giyoshimiken/Documents/Flow_1/Flow_CLI/StyleRegistry.swift",
       "/Users/giyoshimiken/Documents/Flow_1/Flow_CLI/TableReconstructor.swift",
@@ -412,6 +423,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/giyoshimiken/Documents/Flow_1/Flow_CLI/MemoryManager.swift"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/giyoshimiken/Documents/Flow_1/Flow_CLI/SemanticClassifier.swift"
         },
         {
@@ -475,6 +490,10 @@
         {
           "kind" : "file",
           "name" : "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI.build/LayoutEngine.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Flow_CLI.build/MemoryManager.swift.o"
         },
         {
           "kind" : "file",

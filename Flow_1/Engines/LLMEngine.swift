@@ -30,7 +30,7 @@ class LLMEngine: ObservableObject {
     @Published var downloadProgress: Double = 0.0
 
     /// 是否有 Apple Intelligence 可用 (runtime 檢測結果)
-    private var hasFoundationModels = false
+    @Published var isAIAvailable = false
 
     private init() {
         initializeEngine()
@@ -50,7 +50,7 @@ class LLMEngine: ObservableObject {
             Task { @MainActor in
                 let model = SystemLanguageModel.default
                 if model.availability == .available {
-                    self.hasFoundationModels = true
+                    self.isAIAvailable = true
                     self.isModelLoaded = true
                     self.statusMessage = "Apple Intelligence Ready (on-device)"
                     self.downloadProgress = 1.0
@@ -71,7 +71,7 @@ class LLMEngine: ObservableObject {
 
     private func activateNativeEngine() {
         DispatchQueue.main.async {
-            self.hasFoundationModels = false
+            self.isAIAvailable = false
             self.isModelLoaded = true  // 純規則引擎永遠就緒
             self.statusMessage = "Native Engine Ready"
             self.downloadProgress = 1.0
@@ -90,7 +90,7 @@ class LLMEngine: ObservableObject {
         let engineName: String
 
         #if canImport(FoundationModels)
-        if hasFoundationModels {
+        if isAIAvailable {
             engineName = "Apple Intelligence"
             print("🧠 LLM 引擎: 使用 Apple Intelligence (輸入 \(rawText.count) 字元)")
             result = await refineWithFoundationModels(rawText)
@@ -110,7 +110,7 @@ class LLMEngine: ObservableObject {
         #endif
 
         print("✅ LLM 引擎: \(engineName) 完成 (輸出 \(result.count) 字元)")
-        self.statusMessage = hasFoundationModels ? "Apple Intelligence Ready (on-device)" : "Native Engine Ready"
+        self.statusMessage = isAIAvailable ? "Apple Intelligence Ready (on-device)" : "Native Engine Ready"
         self.isProcessing = false
         return result
     }

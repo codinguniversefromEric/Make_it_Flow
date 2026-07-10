@@ -23,6 +23,8 @@ class LibraryStore: ObservableObject {
     static let shared = LibraryStore()
 
     @Published var items: [LibraryItem] = []
+    
+    private var thumbnailCache: [UUID: UIImage] = [:]
 
     private let fileManager = FileManager.default
 
@@ -47,17 +49,19 @@ class LibraryStore: ObservableObject {
 
     func addItem(url: URL, title: String, thumbnail: UIImage?, diagnosticsSummary: String) {
         var thumbnailFilename: String? = nil
+        let newId = UUID()
 
         if let thumbnail = thumbnail,
            let data = thumbnail.jpegData(compressionQuality: 0.7) {
-            let filename = UUID().uuidString + ".jpg"
+            let filename = newId.uuidString + ".jpg"
             let fileURL = thumbnailsDirectory.appendingPathComponent(filename)
             try? data.write(to: fileURL)
             thumbnailFilename = filename
+            thumbnailCache[newId] = thumbnail
         }
 
         let item = LibraryItem(
-            id: UUID(),
+            id: newId,
             url: url,
             title: title,
             createdAt: Date(),
@@ -70,9 +74,16 @@ class LibraryStore: ObservableObject {
     }
 
     func loadThumbnail(for item: LibraryItem) -> UIImage? {
+        if let cached = thumbnailCache[item.id] {
+            return cached
+        }
         guard let filename = item.thumbnailFilename else { return nil }
         let fileURL = thumbnailsDirectory.appendingPathComponent(filename)
-        return UIImage(contentsOfFile: fileURL.path)
+        if let image = UIImage(contentsOfFile: fileURL.path) {
+            thumbnailCache[item.id] = image
+            return image
+        }
+        return nil
     }
 
     func deleteItem(_ item: LibraryItem) {
@@ -80,7 +91,8 @@ class LibraryStore: ObservableObject {
             let fileURL = thumbnailsDirectory.appendingPathComponent(filename)
             try? fileManager.removeItem(at: fileURL)
         }
-
+        
+        thumbnailCache.removeValue(forKey: item.id)
         items.removeAll { $0.id == item.id }
         save()
     }
