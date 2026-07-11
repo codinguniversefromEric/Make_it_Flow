@@ -3,8 +3,8 @@ import WidgetKit
 import SwiftUI
 import AppIntents
 
-public struct FlowWidgetAttributes: ActivityAttributes {
-    public struct ContentState: Codable, Hashable {
+public struct FlowWidgetAttributes: ActivityAttributes, Sendable {
+    public struct ContentState: Codable, Hashable, Sendable {
         public var progress: Double
         public var statusMessage: String
     }

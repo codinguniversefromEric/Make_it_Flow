@@ -21,9 +21,9 @@ class LLMEngine: ObservableObject {
     static let shared = LLMEngine()
     
     // MARK: - Cached Regex Patterns
-    private nonisolated(unsafe) static let multiSpaceRegex = try! NSRegularExpression(pattern: " {2,}")
-    private nonisolated(unsafe) static let multiNewlineRegex = try! NSRegularExpression(pattern: "\n{3,}")
-    private nonisolated(unsafe) static let numberedLineRegex = try! NSRegularExpression(pattern: "^\\d+[.)]\\s")
+    private static let multiSpaceRegex = try! NSRegularExpression(pattern: " {2,}")
+    private static let multiNewlineRegex = try! NSRegularExpression(pattern: "\n{3,}")
+    private static let numberedLineRegex = try! NSRegularExpression(pattern: "^\\d+[.)]\\s")
 
     @Published var isModelLoaded = false
     @Published var isProcessing = false

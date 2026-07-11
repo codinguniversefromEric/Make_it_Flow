@@ -490,7 +490,8 @@ class BatchProcessor: ObservableObject {
                 
                 if !rawTextForLLM.isEmpty {
 #if !CLI_MODE
-                    if AppSettings.shared.useAI {
+                    let shouldUseAI = await MainActor.run { AppSettings.shared.useAI }
+                    if shouldUseAI {
                         print("🧠 第 \(pageIndex + 1) 頁 → AI 修復中... (\(rawTextForLLM.count) 字元)")
                         let perfectMD = await LLMEngine.shared.refineMarkdown(rawText: rawTextForLLM)
                         print("✅ 第 \(pageIndex + 1) 頁 AI 修復完成 (\(perfectMD.count) 字元)")
@@ -639,10 +640,10 @@ class BatchProcessor: ObservableObject {
 
     // MARK: - 圖片裁切工具
     
-    class PDFImageExtractor {
+    final class PDFImageExtractor: Sendable {
         
         /// 直接從全頁圖片中裁切出指定區域並儲存為 JPEG
-        static func cropAndSaveImage(from sourceImage: AppImage, cropRect: CGRect, imageName: String, assetsURL: URL) -> String? {
+        nonisolated static func cropAndSaveImage(from sourceImage: AppImage, cropRect: CGRect, imageName: String, assetsURL: URL) -> String? {
             
             // 1. 取出底層的高畫質 CGImage
             guard let cgImage = sourceImage.cgImage else { return nil }

@@ -11,8 +11,7 @@ import Vision
 
 // MARK: - 佈局分析引擎：基於 YOLO 區塊的語意重組與幾何排序
 
-/// 版面分析與重建引擎
-enum LayoutEngine {
+enum LayoutEngine: Sendable {
 
     // MARK: - Cached Regex Patterns
     private static let eqRegex = try! NSRegularExpression(pattern: "(?i)(Accuracy|Precision|Sensitivity|score|Recall|Specificity)\\s*\u{FFFD}\\s*")
@@ -28,7 +27,7 @@ enum LayoutEngine {
     ///   - pageHeight: 頁面高度
     /// - Returns: 依人類閱讀順序排序好的完美段落
 
-    static func processWithLayoutBlocks(
+    nonisolated static func processWithLayoutBlocks(
         fragments: [TextFragment],
         blocks: [LayoutBlock],
         pageWidth: CGFloat,
@@ -93,7 +92,7 @@ enum LayoutEngine {
     // MARK: - 段落排序
 
     /// 對最終的 ParagraphBlock 進行閱讀順序排序
-    private static func sortParagraphBlocks(_ blocks: [ParagraphBlock], pageWidth: CGFloat) -> [ParagraphBlock] {
+    private nonisolated static func sortParagraphBlocks(_ blocks: [ParagraphBlock], pageWidth: CGFloat) -> [ParagraphBlock] {
         guard blocks.count > 1 else { return blocks }
         
         let ySorted = blocks.sorted { $0.bounds.minY < $1.bounds.minY }
@@ -184,7 +183,7 @@ enum LayoutEngine {
     // MARK: - 2. 閱讀順序演算法 (XY-Cut / Projection Profile)
 
     /// 根據人類閱讀邏輯 (先上後下，先左後右)，對 YOLO 區塊進行幾何排序
-    private static func sortLayoutBlocks(_ blocks: [LayoutBlock], pageWidth: CGFloat, pageHeight: CGFloat) -> [LayoutBlock] {
+    private nonisolated static func sortLayoutBlocks(_ blocks: [LayoutBlock], pageWidth: CGFloat, pageHeight: CGFloat) -> [LayoutBlock] {
         // 先換算成顯示座標的 CGRect
         let rectBlocks: [(block: LayoutBlock, rect: CGRect)] = blocks.map {
             let rect = VNImageRectForNormalizedRect($0.boundingBox, Int(pageWidth), Int(pageHeight))
@@ -231,7 +230,7 @@ enum LayoutEngine {
     }
 
     /// 在一個水平大區塊 (Region) 內，區分出左右欄位並進行排序
-    private static func sortRegionColumns(_ region: [(block: LayoutBlock, rect: CGRect)], pageWidth: CGFloat) -> [(block: LayoutBlock, rect: CGRect)] {
+    private nonisolated static func sortRegionColumns(_ region: [(block: LayoutBlock, rect: CGRect)], pageWidth: CGFloat) -> [(block: LayoutBlock, rect: CGRect)] {
         guard region.count > 1 else { return region }
         
         // 投射到 X 軸，找出欄位
@@ -288,7 +287,7 @@ enum LayoutEngine {
     // MARK: - Old Heuristic Engine Fallback
 
     /// 偵測頁面中的文字分欄與區域
-    static func detectColumns(fragments: [TextFragment], pageWidth: CGFloat, pageHeight: CGFloat) -> [ColumnRegion] {
+    nonisolated static func detectColumns(fragments: [TextFragment], pageWidth: CGFloat, pageHeight: CGFloat) -> [ColumnRegion] {
         guard !fragments.isEmpty, pageWidth > 0 else {
             return [ColumnRegion(xRange: 0...pageWidth, fragments: fragments)]
         }
@@ -373,7 +372,7 @@ enum LayoutEngine {
     }
 
     /// 將碎片根據文字特徵與幾何間距分組為段落
-    static func groupIntoParagraphs(fragments: [TextFragment], pageHeight: CGFloat) -> [ParagraphBlock] {
+    nonisolated static func groupIntoParagraphs(fragments: [TextFragment], pageHeight: CGFloat) -> [ParagraphBlock] {
         guard !fragments.isEmpty else { return [] }
 
         // 先按 Y 座標排序 (顯示座標系，Y 越小越上方)
@@ -497,7 +496,7 @@ enum LayoutEngine {
     }
 
     /// 純啟發式的版面解析與段落重組
-    static func processPage(
+    nonisolated static func processPage(
         fragments: [TextFragment],
         pageWidth: CGFloat,
         pageHeight: CGFloat
@@ -552,7 +551,7 @@ enum LayoutEngine {
     }
 
     /// 利用拓撲排序決定段落的閱讀順序
-    static func sortBlocksTopologically(_ blocks: [ParagraphBlock]) -> [ParagraphBlock] {
+    nonisolated static func sortBlocksTopologically(_ blocks: [ParagraphBlock]) -> [ParagraphBlock] {
         guard blocks.count > 1 else { return blocks }
         
         var adj = [Int: [Int]]()
@@ -633,7 +632,7 @@ enum LayoutEngine {
     // MARK: - 3. 語意轉換與段落封裝
 
     /// 將 YOLO 的標籤映射到我們定義的 SemanticRole
-    private static func mapYoloLabelToRole(_ label: String) -> SemanticRole {
+    private nonisolated static func mapYoloLabelToRole(_ label: String) -> SemanticRole {
         switch label.lowercased() {
         case "title": return .title
         case "section-header": return .heading
@@ -651,7 +650,7 @@ enum LayoutEngine {
     }
 
     /// 從一組連續的文字碎片建構一個 ParagraphBlock
-    private static func buildParagraphBlock(from fragments: [TextFragment], role: SemanticRole) -> ParagraphBlock {
+    private nonisolated static func buildParagraphBlock(from fragments: [TextFragment], role: SemanticRole) -> ParagraphBlock {
         // 計算外接矩形
         var minX = CGFloat.greatestFiniteMagnitude
         var minY = CGFloat.greatestFiniteMagnitude
@@ -683,7 +682,7 @@ enum LayoutEngine {
     }
 
     /// 修復跨行斷字 (e.g., "hyperdon-" + "tia" → "hyperdontia")
-    private static func recoverHyphenation(lines: [String]) -> String {
+    private nonisolated static func recoverHyphenation(lines: [String]) -> String {
         var parts: [String] = []
 
         for line in lines {
@@ -703,7 +702,7 @@ enum LayoutEngine {
     }
 
     /// 針對論文常見的 PDF 字體亂碼進行修正
-    private static func sanitizeScientificOCR(_ text: String) -> String {
+    private nonisolated static func sanitizeScientificOCR(_ text: String) -> String {
         var clean = text
         
         // 修正加號

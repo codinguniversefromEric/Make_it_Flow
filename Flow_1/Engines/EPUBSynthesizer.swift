@@ -10,7 +10,7 @@ import Foundation
 import Ink
 
 /// 負責將 Markdown 內容轉換並封裝為合規的 EPUB 檔案
-class EPUBSynthesizer {
+final class EPUBSynthesizer: Sendable {
     
     // MARK: - Cached Regex Patterns
     private static let altRegex = try! NSRegularExpression(pattern: "alt=\\\"[^\\\"]*\\\"")
@@ -21,14 +21,14 @@ class EPUBSynthesizer {
     // MARK: - XML 安全工具
     
     /// 移除 XML 1.0 中不合法的控制字元 (例如 \x07 bell, \x08 backspace 等)
-    static func removeInvalidXMLCharacters(_ text: String) -> String {
+    nonisolated static func removeInvalidXMLCharacters(_ text: String) -> String {
         let invalidXMLChars = CharacterSet(charactersIn: "\u{0000}"..."\u{001F}")
             .subtracting(CharacterSet(charactersIn: "\u{0009}\u{000A}\u{000D}"))
         return text.components(separatedBy: invalidXMLChars).joined()
     }
 
     /// 將標題的危險符號跳脫，防止 toc.ncx 導覽檔崩潰
-    static func sanitizeForXML(_ text: String) -> String {
+    nonisolated static func sanitizeForXML(_ text: String) -> String {
         let cleanText = removeInvalidXMLCharacters(text)
         return cleanText
             .replacingOccurrences(of: "&", with: "&amp;")
@@ -37,7 +37,7 @@ class EPUBSynthesizer {
     }
     
     /// 將 Ink 產生的寬鬆 HTML5，強制洗白成極度嚴格的 XHTML
-    static func sanitizeHTMLBody(_ html: String) -> String {
+    nonisolated static func sanitizeHTMLBody(_ html: String) -> String {
         var clean = removeInvalidXMLCharacters(html)
         clean = clean.replacingOccurrences(of: "<br>", with: "<br/>")
         clean = clean.replacingOccurrences(of: "<hr>", with: "<hr/>")
@@ -64,7 +64,7 @@ class EPUBSynthesizer {
     }
     
     /// 對 HTML 中的 h1/h2/h3 標籤注入 id 屬性，讓 EPUB TOC 可以連結到具體位置
-    static func injectHeadingIDs(_ html: String) -> (String, [TOCEntry]) {
+    nonisolated static func injectHeadingIDs(_ html: String) -> (String, [TOCEntry]) {
         var result = html
         var entries: [TOCEntry] = []
         var counter = 0
@@ -141,7 +141,7 @@ class EPUBSynthesizer {
     }
     
     /// 從 TOCEntry 陣列生成 EPUB nav 的 <ol> 內容
-    static func buildNavLinks(entries: [TOCEntry], xhtmlFile: String) -> String {
+    nonisolated static func buildNavLinks(entries: [TOCEntry], xhtmlFile: String) -> String {
         guard !entries.isEmpty else {
             return "<li><a href=\"\(xhtmlFile)\">正文</a></li>"
         }
@@ -156,7 +156,7 @@ class EPUBSynthesizer {
     // MARK: - 標準通道：單頁論文引擎
 
     /// 建立單頁或無分章論文的 EPUB 檔案
-    static func createEPUB(title: String, markdown: String, assetsURL: URL) -> URL? {
+    nonisolated static func createEPUB(title: String, markdown: String, assetsURL: URL) -> URL? {
         let fm = FileManager.default
         let epubURL = fm.temporaryDirectory.appendingPathComponent("\(title).epub")
         let bookUUID = UUID().uuidString
@@ -297,7 +297,7 @@ class EPUBSynthesizer {
     // MARK: - 書籍專用通道：多章節引擎
 
     /// 建立多章節書籍的 EPUB 檔案
-    static func createBookEPUB(title: String, fullMarkdown: String, assetsURL: URL) -> URL? {
+    nonisolated static func createBookEPUB(title: String, fullMarkdown: String, assetsURL: URL) -> URL? {
         let fm = FileManager.default
         let epubURL = fm.temporaryDirectory.appendingPathComponent("\(title).epub")
         let bookUUID = UUID().uuidString
@@ -487,7 +487,7 @@ struct EPUBArchiveEntry {
 private struct StoredZIPArchive {
     let entries: [EPUBArchiveEntry]
     
-    func data() throws -> Data {
+    nonisolated func data() throws -> Data {
         var archive = Data()
         var centralDirectory = Data()
         var centralDirEntries: [(entry: EPUBArchiveEntry, crc: UInt32, offset: UInt32)] = []
@@ -563,18 +563,18 @@ private struct StoredZIPArchive {
 private extension Data {
     mutating func appendUInt16(_ value: UInt16) {
         var le = value.littleEndian
-        append(UnsafeBufferPointer(start: &le, count: 1))
+        withUnsafeBytes(of: &le) { append(contentsOf: $0) }
     }
     mutating func appendUInt32(_ value: UInt32) {
         var le = value.littleEndian
-        append(UnsafeBufferPointer(start: &le, count: 1))
+        withUnsafeBytes(of: &le) { append(contentsOf: $0) }
     }
 }
 
 // MARK: - CRC-32 計算 (純 Swift，不需外部框架)
 
 private enum CRC32 {
-    static let table: [UInt32] = {
+    nonisolated(unsafe) static let table: [UInt32] = {
         (0..<256).map { i -> UInt32 in
             var c = UInt32(i)
             for _ in 0..<8 {
@@ -588,7 +588,7 @@ private enum CRC32 {
         }
     }()
     
-    static func checksum(_ data: Data) -> UInt32 {
+    nonisolated static func checksum(_ data: Data) -> UInt32 {
         var crc: UInt32 = 0xFFFFFFFF
         for byte in data {
             let index = Int((crc ^ UInt32(byte)) & 0xFF)

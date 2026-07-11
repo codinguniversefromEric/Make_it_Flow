@@ -13,7 +13,7 @@ import ActivityKit
 // MARK: - Activity Tracking
 
 /// 追蹤與管理動態島及鎖定畫面的即時活動
-actor ActivityTracker {
+@MainActor final class ActivityTracker {
     private var currentActivity: Activity<FlowWidgetAttributes>? = nil
     
     init() {
@@ -70,7 +70,7 @@ actor ActivityTracker {
     }
 }
 #else
-actor ActivityTracker {
+@MainActor final class ActivityTracker {
     func start(documentName: String) {}
     func update(progress: Double, message: String) async {}
     func end(progress: Double, message: String) async {}

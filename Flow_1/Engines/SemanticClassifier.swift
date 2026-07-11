@@ -11,18 +11,18 @@ import CoreGraphics
 // MARK: - 語意分類器：基於評分累計與 sigmoid 信心度的多特徵分類
 
 /// 負責將段落區塊分類為不同的語意角色
-enum SemanticClassifier {
+enum SemanticClassifier: Sendable {
 
     // MARK: - Cached Regex Patterns
-    private static let numberedListPatterns: [NSRegularExpression] = [
+    nonisolated private static let numberedListPatterns: [NSRegularExpression] = [
         try! NSRegularExpression(pattern: "^\\d{1,3}[.)]\\s"),
         try! NSRegularExpression(pattern: "^[a-zA-Z][.)]\\s"),
         try! NSRegularExpression(pattern: "^[ivxIVX]+[.)]\\s")
     ]
     
     private static let chapterPatterns: [NSRegularExpression] = [
-        try! NSRegularExpression(pattern: "^chapter\\s+\\d+", options: .caseInsensitive),
-        try! NSRegularExpression(pattern: "^part\\s+\\w+", options: .caseInsensitive),
+        try! NSRegularExpression(pattern: "^(?i)(Chapter|Section|Part)\\s*\\d+"),
+        try! NSRegularExpression(pattern: "^第\\s*[零一二三四五六七八九十百千0-9]+\\s*[章節篇]"),
         try! NSRegularExpression(pattern: "^第[一二三四五六七八九十百零0-9]+[章節]"),
         try! NSRegularExpression(pattern: "^appendix", options: .caseInsensitive)
     ]
@@ -34,7 +34,7 @@ enum SemanticClassifier {
     ///   - blocks: 待分類的段落區塊 (應已由 LayoutEngine 聚合)
     ///   - pageHeight: 頁面高度 (顯示座標系)
     ///   - styleRegistry: 全域文件樣式基準
-    static func classify(blocks: inout [ParagraphBlock], pageHeight: CGFloat, styleRegistry: StyleRegistry) {
+    nonisolated static func classify(blocks: inout [ParagraphBlock], pageHeight: CGFloat, styleRegistry: StyleRegistry) {
         for i in 0..<blocks.count {
             blocks[i].role = classifyBlock(
                 blocks[i],
@@ -47,7 +47,7 @@ enum SemanticClassifier {
     // MARK: - 單區塊分類
 
     /// 根據多特徵評分規則分類單一區塊
-    private static func classifyBlock(
+    nonisolated private static func classifyBlock(
         _ block: ParagraphBlock,
         styleRegistry: StyleRegistry,
         pageHeight: CGFloat
@@ -149,7 +149,7 @@ enum SemanticClassifier {
     // MARK: - 輔助判斷
 
     /// 判斷文字是否主要由數字組成
-    private static func isHighlyNumeric(_ text: String) -> Bool {
+    nonisolated private static func isHighlyNumeric(_ text: String) -> Bool {
         let digits = text.filter { $0.isNumber }
         let nonSpace = text.filter { !$0.isWhitespace }
         guard !nonSpace.isEmpty else { return false }
@@ -157,7 +157,7 @@ enum SemanticClassifier {
     }
 
     /// 判斷是否符合列表編號格式
-    private static func matchesNumberedList(_ text: String) -> Bool {
+    nonisolated private static func matchesNumberedList(_ text: String) -> Bool {
         let range = NSRange(text.startIndex..., in: text)
         for regex in numberedListPatterns {
             if regex.firstMatch(in: text, range: range) != nil {
@@ -168,7 +168,7 @@ enum SemanticClassifier {
     }
     
     /// 判斷是否為章節標題關鍵字
-    private static func matchesChapter(_ text: String) -> Bool {
+    nonisolated private static func matchesChapter(_ text: String) -> Bool {
         let range = NSRange(text.startIndex..., in: text)
         for regex in chapterPatterns {
             if regex.firstMatch(in: text, range: range) != nil {
@@ -181,7 +181,7 @@ enum SemanticClassifier {
     // MARK: - 工具
 
     /// 判斷該角色區塊是否應在最終輸出被捨棄
-    static func shouldDrop(_ role: SemanticRole) -> Bool {
+    nonisolated static func shouldDrop(_ role: SemanticRole) -> Bool {
         switch role {
         case .pageHeader, .pageFooter, .pageNumber:
             return true
@@ -191,7 +191,7 @@ enum SemanticClassifier {
     }
 
     /// 將段落區塊轉換為對應的 Markdown 格式
-    static func toMarkdown(block: ParagraphBlock) -> String {
+    nonisolated static func toMarkdown(block: ParagraphBlock) -> String {
         let text = block.unifiedText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return "" }
 

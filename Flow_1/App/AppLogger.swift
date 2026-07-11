@@ -30,7 +30,7 @@ enum LogLevel: String {
 // MARK: - App Logger
 
 /// 應用程式日誌記錄器，負責將 Log 寫入檔案與控制台
-class AppLogger {
+class AppLogger: @unchecked Sendable {
     static let shared = AppLogger()
     
     private static let isoFormatter: ISO8601DateFormatter = {
@@ -118,19 +118,19 @@ class AppLogger {
         }
     }
     
-    func info(_ message: String) {
-        log(level: .info, message: message)
+    nonisolated func info(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
+        log(level: .info, message: message, file: file, function: function, line: line)
     }
     
-    func warning(_ message: String) {
-        log(level: .warning, message: message)
+    nonisolated func warning(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
+        log(level: .warning, message: message, file: file, function: function, line: line)
     }
     
-    func error(_ message: String) {
-        log(level: .error, message: message)
+    nonisolated func error(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
+        log(level: .error, message: message, file: file, function: function, line: line)
     }
     
-    func crash(_ message: String) {
+    nonisolated func crash(_ message: String) {
         log(level: .crash, message: message)
     }
     

@@ -11,7 +11,7 @@ import CoreGraphics
 // MARK: - 表格結構解析器
 
 /// 啟發式表格結構解析器 (Rule-based Table Structure Recognition)
-enum TableReconstructor {
+enum TableReconstructor: Sendable {
     
     /// 嘗試將表格區域內的文字碎片重建為 Markdown 表格
     /// - Parameters:
@@ -20,7 +20,7 @@ enum TableReconstructor {
     /// - Returns: 若成功重建則回傳 Markdown 表格字串，否則回傳 nil (交由影像裁切處理)
     // MARK: - 核心解析方法
     
-    static func reconstruct(fragments: [TextFragment], tableBounds: CGRect) -> String? {
+    nonisolated static func reconstruct(fragments: [TextFragment], tableBounds: CGRect) -> String? {
         guard fragments.count >= 4 else {
             // 碎片太少，可能是圖片表格或無法擷取文字，退回裁圖
             return nil

@@ -26,7 +26,7 @@ struct StyleRegistry: Sendable {
     /// 初始化並分析 PDF 文件
     /// - Parameter document: 待掃描的 PDF 文件
     /// - Returns: 分析完成的全域樣式註冊表
-    static func analyze(document: PDFDocument) -> StyleRegistry {
+    nonisolated static func analyze(document: PDFDocument) -> StyleRegistry {
         var allFontSizes: [CGFloat] = []
         var largeFontSizes: [CGFloat] = []
         

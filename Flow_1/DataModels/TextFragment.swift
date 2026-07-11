@@ -51,7 +51,7 @@ struct ParagraphBlock: Sendable {
     /// 粗體比例 (0.0 ~ 1.0) — cached at init
     let boldRatio: CGFloat
 
-    init(fragments: [TextFragment], role: SemanticRole, unifiedText: String, bounds: CGRect) {
+    nonisolated init(fragments: [TextFragment], role: SemanticRole, unifiedText: String, bounds: CGRect) {
         self.fragments = fragments
         self.role = role
         self.unifiedText = unifiedText
@@ -76,7 +76,7 @@ struct ParagraphBlock: Sendable {
     }
 
     /// 歸一化 Y 位置 (0.0 = 頁頂, 1.0 = 頁底)
-    func normalizedY(pageHeight: CGFloat) -> CGFloat {
+    nonisolated func normalizedY(pageHeight: CGFloat) -> CGFloat {
         guard pageHeight > 0 else { return 0.5 }
         return bounds.midY / pageHeight
     }
@@ -101,9 +101,9 @@ struct VisualRegion: Sendable {
 
 // MARK: - NMS 工具函式 (共用，不再重複)
 
-enum NMSUtils {
+enum NMSUtils: Sendable {
     /// 計算兩個矩形的 IoU (Intersection over Union)
-    static func calcIoU(_ rectA: CGRect, _ rectB: CGRect) -> CGFloat {
+    nonisolated static func calcIoU(_ rectA: CGRect, _ rectB: CGRect) -> CGFloat {
         let intersection = rectA.intersection(rectB)
         guard !intersection.isNull else { return 0.0 }
         let interArea = intersection.width * intersection.height
@@ -113,7 +113,7 @@ enum NMSUtils {
     }
 
     /// 計算 inner 被 outer 覆蓋的比例
-    static func calcCoverage(_ inner: CGRect, _ outer: CGRect) -> CGFloat {
+    nonisolated static func calcCoverage(_ inner: CGRect, _ outer: CGRect) -> CGFloat {
         let intersection = inner.intersection(outer)
         guard !intersection.isNull else { return 0.0 }
         let innerArea = inner.width * inner.height
@@ -122,7 +122,7 @@ enum NMSUtils {
     }
 
     /// 對 VNRecognizedObjectObservation 陣列進行 NMS 過濾
-    static func filterObservations(
+    nonisolated static func filterObservations(
         _ observations: [any NSObjectProtocol],
         iouThreshold: CGFloat = 0.4,
         coverageThreshold: CGFloat = 0.8,
