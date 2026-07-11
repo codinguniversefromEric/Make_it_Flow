@@ -28,11 +28,12 @@ struct PaywallView: View {
                         .font(.system(size: 64))
                         .foregroundStyle(.tint)
                     
-                    Text("Unlock Flow Pro")
+                    Text("Enjoy an Ad-Free Experience")
                         .font(.largeTitle)
                         .fontWeight(.bold)
+                        .multilineTextAlignment(.center)
                     
-                    Text("Unlimited PDF to EPUB synthesis powered by On-Device AI.")
+                    Text("Upgrade to Flow Pro to completely remove all advertisements and unlock the full potential of the app.")
                         .font(.body)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -42,10 +43,9 @@ struct PaywallView: View {
                 
                 // Features
                 VStack(alignment: .leading, spacing: 20) {
-                    FeatureRow(icon: "doc.text.viewfinder", title: "CoreML Layout Vision", subtitle: "Extract text in reading order perfectly.")
-                    FeatureRow(icon: "brain.head.profile", title: "Apple Intelligence", subtitle: "Advanced semantic text reconstruction.")
-                    FeatureRow(icon: "infinity", title: "Unlimited Conversions", subtitle: "Convert as many PDFs as you want.")
-                    FeatureRow(icon: "lock.shield", title: "100% Privacy", subtitle: "Everything runs locally on your device.")
+                    FeatureRow(icon: "nosign", title: "Zero Advertisements", subtitle: "Say goodbye to interruptions. Enjoy a clean and seamless interface.")
+                    FeatureRow(icon: "infinity", title: "Unlimited Conversions", subtitle: "Convert as many PDFs as you want without limits.")
+                    FeatureRow(icon: "sparkles", title: "Premium Experience", subtitle: "Focus on your reading workflow without any distractions.")
                 }
                 .padding(.horizontal, 24)
                 
@@ -109,7 +109,7 @@ struct PaywallView: View {
             .accessibilityLabel("Close")
             .accessibilityHint("Dismiss the upgrade screen")
         }
-        .onChange(of: subscriptionManager.isPremium) { _, newValue in
+        .onChange(of: subscriptionManager.isPremium) { newValue in
             if newValue { dismiss() }
         }
     }
