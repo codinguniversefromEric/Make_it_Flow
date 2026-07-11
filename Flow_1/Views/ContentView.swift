@@ -19,6 +19,7 @@ struct ContentView: View {
     @StateObject private var vm = ContentViewModel()
     @State private var isEditing = false
     @State private var selectedItems = Set<UUID>()
+    @ObservedObject private var adManager = AdManager.shared
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -29,7 +30,7 @@ struct ContentView: View {
             
             VStack(spacing: 0) {
                 // 1. 原生導航列與主內容
-                NavigationStack {
+                NavigationView {
                     mainContentView
                         .toolbar {
                             ToolbarItem(placement: .topBarLeading) {
@@ -133,7 +134,7 @@ struct ContentView: View {
             PaywallView()
                 .environmentObject(vm.subscriptionManager)
         }
-        .onChange(of: vm.batchProcessor.exportedFileURL) { _, newURL in
+        .onChange(of: vm.batchProcessor.exportedFileURL) { newURL in
             if let epubURL = newURL {
                 vm.finishConversion(epubURL: epubURL)
             }
@@ -166,7 +167,6 @@ extension ContentView {
                     Image(systemName: "doc.text.magnifyingglass")
                         .font(.system(size: 64))
                         .foregroundStyle(.secondary)
-                        .symbolEffect(.pulse, isActive: vm.batchProcessor.isProcessing)
                     Text("Processing document...")
                         .font(.title3.weight(.medium))
                         .foregroundColor(.secondary)
@@ -224,94 +224,12 @@ extension ContentView {
         ZStack {
             ScrollView {
                 if vm.libraryStore.items.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "books.vertical.fill")
-                            .font(.system(size: 72))
-                            .foregroundColor(Color.secondary.opacity(0.3))
-                        Text("Library is empty")
-                            .font(.title2.weight(.bold))
-                        Text("Drag & drop PDFs here\nor tap '+' to add")
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                            .lineSpacing(4)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 160)
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("Library is empty. Drag a PDF here or tap the add button to get started.")
+                    emptyLibraryView
                 } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 20) {
-                        ForEach(vm.libraryStore.items) { file in
-                            VStack {
-                                if let thumb = vm.libraryStore.loadThumbnail(for: file) {
-                                    Image(uiImage: thumb)
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(height: 180)
-                                        .cornerRadius(8)
-                                        .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
-                                } else {
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(Color(UIColor.secondarySystemFill))
-                                        .frame(height: 180)
-                                }
-                                Text(file.title)
-                                    .font(.caption).fontWeight(.medium).foregroundColor(.primary)
-                                    .lineLimit(1).padding(.top, 8)
-                            }
-                            .padding(12)
-                            .background(Color(UIColor.secondarySystemGroupedBackground))
-                            .cornerRadius(16)
-                            .shadow(color: .black.opacity(0.08), radius: 10, y: 4)
-                            .overlay(
-                                Group {
-                                    if !isEditing {
-                                        ShareLink(item: file.url) {
-                                            Color.clear
-                                        }
-                                    }
-                                }
-                            )
-                            .overlay(alignment: .bottomTrailing) {
-                                if isEditing {
-                                    Image(systemName: selectedItems.contains(file.id) ? "checkmark.circle.fill" : "circle")
-                                        .font(.system(size: 24))
-                                        .foregroundColor(selectedItems.contains(file.id) ? .blue : .gray.opacity(0.5))
-                                        .background(Circle().fill(Color.white))
-                                        .offset(x: -12, y: -12)
-                                        .transition(.scale.combined(with: .opacity))
-                                }
-                            }
-                            .onTapGesture {
-                                if isEditing {
-                                    withAnimation(.easeInOut(duration: 0.1)) {
-                                        if selectedItems.contains(file.id) {
-                                            selectedItems.remove(file.id)
-                                        } else {
-                                            selectedItems.insert(file.id)
-                                        }
-                                    }
-                                }
-                            }
-                            .contextMenu {
-                                ShareLink(item: file.url) {
-                                    Label("Share EPUB", systemImage: "square.and.arrow.up")
-                                }
-                                Button(role: .destructive) {
-                                    vm.libraryStore.deleteItem(file)
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
-                            }
-                            .accessibilityElement(children: .combine)
-                            .accessibilityLabel(file.title)
-                            .accessibilityHint("Long press to share this EPUB")
-                        }
-                    }
-                    .padding(20)
+                    populatedLibraryView
                 }
             }
-            .scrollIndicators(.hidden)
+            
             .safeAreaInset(edge: .bottom) {
                 if isEditing {
                     VStack(spacing: 0) {
@@ -358,8 +276,126 @@ extension ContentView {
         .onDrop(of: [.pdf], isTargeted: $vm.dragOver) { providers in vm.handleDrop(providers) }
     }
     
+    @ViewBuilder
+    private var emptyLibraryView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "books.vertical.fill")
+                .font(.system(size: 72))
+                .foregroundColor(Color.secondary.opacity(0.3))
+            Text("Library is empty")
+                .font(.title2.weight(.bold))
+            Text("Drag & drop PDFs here\nor tap '+' to add")
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(4)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 160)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Library is empty. Drag a PDF here or tap the add button to get started.")
+        
+        if !vm.subscriptionManager.isPremium {
+            nativeAdSection
+                .padding(.top, 40)
+        }
+    }
+    
+    @ViewBuilder
+    private var populatedLibraryView: some View {
+        if !vm.subscriptionManager.isPremium {
+            nativeAdSection
+        }
+        
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 20) {
+                        ForEach(vm.libraryStore.items) { file in
+                            VStack {
+                                if let thumb = vm.libraryStore.loadThumbnail(for: file) {
+                                    Image(uiImage: thumb)
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(height: 180)
+                                        .cornerRadius(8)
+                                        .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+                                } else {
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(Color(UIColor.secondarySystemFill))
+                                        .frame(height: 180)
+                                }
+                                Text(file.title)
+                                    .font(.caption).fontWeight(.medium).foregroundColor(.primary)
+                                    .lineLimit(1).padding(.top, 8)
+                            }
+                            .padding(12)
+                            .background(Color(UIColor.secondarySystemGroupedBackground))
+                            .cornerRadius(16)
+                            .shadow(color: .black.opacity(0.08), radius: 10, y: 4)
+                            .overlay(
+                                Group {
+                                    if !isEditing {
+                                        if #available(iOS 16.0, *) {
+                                            ShareLink(item: file.url) {
+                                                Color.clear
+                                            }
+                                        } else {
+                                            Color.clear
+                                        }
+                                    }
+                                }
+                            )
+                            .overlay(alignment: .bottomTrailing) {
+                                if isEditing {
+                                    Image(systemName: selectedItems.contains(file.id) ? "checkmark.circle.fill" : "circle")
+                                        .font(.system(size: 24))
+                                        .foregroundColor(selectedItems.contains(file.id) ? .blue : .gray.opacity(0.5))
+                                        .background(Circle().fill(Color.white))
+                                        .offset(x: -12, y: -12)
+                                        .transition(.scale.combined(with: .opacity))
+                                }
+                            }
+                            .onTapGesture {
+                                if isEditing {
+                                    withAnimation(.easeInOut(duration: 0.1)) {
+                                        if selectedItems.contains(file.id) {
+                                            selectedItems.remove(file.id)
+                                        } else {
+                                            selectedItems.insert(file.id)
+                                        }
+                                    }
+                                }
+                            }
+                            .contextMenu {
+                                if #available(iOS 16.0, *) {
+                                ShareLink(item: file.url) {
+                                    Label("Share EPUB", systemImage: "square.and.arrow.up")
+                                }
+                            }
+                                Button(role: .destructive) {
+                                    vm.libraryStore.deleteItem(file)
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
+                            .accessibilityElement(children: .combine)
+                            .accessibilityLabel(file.title)
+                            .accessibilityHint("Long press to share this EPUB")
+                        }
+                    }
+                    .padding(24)
+                    .padding(.bottom, 80)
+    }
+    
     // 🌟 原生浮動按鈕 (已移除，改由右上角 ToolbarItem 處理)
     // MARK: 動畫層
+    @ViewBuilder
+    private var nativeAdSection: some View {
+        Group {
+            if let ad = adManager.nativeAd {
+                AdMobNativeView(nativeAd: ad)
+            } else {
+                ProgressView()
+            }
+        }
+    }
     @ViewBuilder
     private var animationOverlay: some View {
         if vm.animState != .idle {
@@ -429,11 +465,9 @@ extension ContentView {
                 }
             }
             .ignoresSafeArea()
-        } else {
-            EmptyView()
         }
     }
-}
+    }
 
 // MARK: - 流暢的 Shape 水滴進度條 (無 Canvas 負擔)
 // 流暢水波紋進度條視圖
@@ -471,7 +505,7 @@ struct GlassLiquidView: View {
         .onAppear {
             animatedProgress = progress
         }
-        .onChange(of: progress) { _, newVal in
+        .onChange(of: progress) { newVal in
             // 彈簧動畫讓進度跟隨時有絲滑的物理拉扯感
             withAnimation(.spring(response: 0.8, dampingFraction: 0.75)) {
                 animatedProgress = newVal
