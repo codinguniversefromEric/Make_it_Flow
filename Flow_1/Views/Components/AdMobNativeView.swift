@@ -58,6 +58,14 @@ struct AdMobNativeView: UIViewRepresentable {
         adView.addSubview(bodyView)
         adView.bodyView = bodyView
         
+        // 🌟 NEW: Media View (For main image or video)
+        let mediaView = MediaView()
+        mediaView.layer.cornerRadius = 8
+        mediaView.layer.masksToBounds = true
+        mediaView.translatesAutoresizingMaskIntoConstraints = false
+        adView.addSubview(mediaView)
+        adView.mediaView = mediaView
+        
         // 5. Call To Action View (Pill shaped, vibrant color)
         let ctaButton = UIButton(type: .system)
         ctaButton.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .bold)
@@ -77,12 +85,12 @@ struct AdMobNativeView: UIViewRepresentable {
             // Icon Constraints
             iconView.leadingAnchor.constraint(equalTo: adView.leadingAnchor, constant: 16),
             iconView.topAnchor.constraint(equalTo: adView.topAnchor, constant: 16),
-            iconView.widthAnchor.constraint(equalToConstant: 54),
-            iconView.heightAnchor.constraint(equalToConstant: 54),
+            iconView.widthAnchor.constraint(equalToConstant: 40),
+            iconView.heightAnchor.constraint(equalToConstant: 40),
             
             // Headline Constraints
-            headlineView.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 14),
-            headlineView.topAnchor.constraint(equalTo: adView.topAnchor, constant: 18),
+            headlineView.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 12),
+            headlineView.topAnchor.constraint(equalTo: adView.topAnchor, constant: 16),
             headlineView.trailingAnchor.constraint(equalTo: adBadge.leadingAnchor, constant: -8),
             
             // Ad Badge Constraints
@@ -92,14 +100,20 @@ struct AdMobNativeView: UIViewRepresentable {
             adBadge.heightAnchor.constraint(equalToConstant: 16),
             
             // Body Constraints
-            bodyView.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 14),
+            bodyView.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 12),
             bodyView.topAnchor.constraint(equalTo: headlineView.bottomAnchor, constant: 4),
             bodyView.trailingAnchor.constraint(equalTo: adView.trailingAnchor, constant: -16),
+            
+            // Media View Constraints
+            mediaView.topAnchor.constraint(equalTo: bodyView.bottomAnchor, constant: 12),
+            mediaView.leadingAnchor.constraint(equalTo: adView.leadingAnchor, constant: 16),
+            mediaView.trailingAnchor.constraint(equalTo: adView.trailingAnchor, constant: -16),
+            mediaView.heightAnchor.constraint(equalToConstant: 120), // Adjusted height for main image/video
             
             // CTA Button Constraints
             ctaButton.leadingAnchor.constraint(equalTo: adView.leadingAnchor, constant: 16),
             ctaButton.trailingAnchor.constraint(equalTo: adView.trailingAnchor, constant: -16),
-            ctaButton.topAnchor.constraint(equalTo: iconView.bottomAnchor, constant: 16),
+            ctaButton.topAnchor.constraint(equalTo: mediaView.bottomAnchor, constant: 12),
             ctaButton.heightAnchor.constraint(equalToConstant: 44),
             ctaButton.bottomAnchor.constraint(equalTo: adView.bottomAnchor, constant: -16)
         ])
@@ -110,6 +124,10 @@ struct AdMobNativeView: UIViewRepresentable {
     func updateUIView(_ uiView: NativeAdView, context: Context) {
         // Populate the views with the native ad data
         (uiView.headlineView as? UILabel)?.text = nativeAd.headline
+        
+        // Populate MediaView
+        (uiView.mediaView as? MediaView)?.mediaContent = nativeAd.mediaContent
+        
         (uiView.bodyView as? UILabel)?.text = nativeAd.body
         (uiView.callToActionView as? UIButton)?.setTitle(nativeAd.callToAction, for: .normal)
         

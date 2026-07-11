@@ -85,7 +85,7 @@ struct ContentView: View {
                 // 原生廣告 (若未付費) - 放置於畫面底部
                 if !vm.subscriptionManager.isPremium {
                     nativeAdSection
-                        .frame(height: 146)
+                        .frame(height: 290) // increased height to accommodate MediaView
                         .padding(.horizontal)
                         .padding(.bottom, 8)
                         .background(Color(UIColor.systemGroupedBackground))
