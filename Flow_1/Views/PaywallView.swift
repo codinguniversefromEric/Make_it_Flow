@@ -102,10 +102,11 @@ struct PaywallView: View {
         .overlay(alignment: .topTrailing) {
             Button { dismiss() } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.title2)
+                    .font(.system(size: 32))
                     .foregroundColor(.gray.opacity(0.8))
             }
-            .padding()
+            .padding(.top, 24)
+            .padding(.trailing, 24)
             .accessibilityLabel("Close")
             .accessibilityHint("Dismiss the upgrade screen")
         }
