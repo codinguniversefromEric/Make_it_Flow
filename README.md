@@ -14,6 +14,7 @@
 * **EPUB Generation**: Outputs standard, clean EPUB files that are perfect for reading on Apple Books, Kindle, or your favorite e-reader.
 * **Home Library**: Keep track of all your converted books in a beautiful, grid-based library with generated thumbnails.
 * **StoreKit Paywall**: Includes a built-in paywall allowing users 3 free conversions before seamlessly upgrading to a Lifetime or Yearly Pro subscription.
+* **AdMob Monetization**: Integrated with Google Mobile Ads (Native & Interstitial) for freemium users, complete with a beautifully customized, premium native ad UI that seamlessly blends into the app. Pro users enjoy a 100% ad-free experience.
 
 ## 📱 Demo
 
@@ -30,6 +31,7 @@ https://github.com/user-attachments/assets/96e65142-16ab-4966-ba22-0ead609a3662
   * `Vision` (Native text recognition and bounding box generation)
   * `CoreML` / YOLO (Advanced layout analysis)
   * `StoreKit` (In-App Purchases)
+  * `GoogleMobileAds` (AdMob Native & Interstitial Ads)
 
 ## 🚀 Getting Started
 
