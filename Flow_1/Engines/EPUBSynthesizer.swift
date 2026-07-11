@@ -563,11 +563,11 @@ private struct StoredZIPArchive {
 private extension Data {
     mutating func appendUInt16(_ value: UInt16) {
         var le = value.littleEndian
-        withUnsafeBytes(of: &le) { append(contentsOf: $0) }
+        Swift.withUnsafeBytes(of: &le) { append(contentsOf: $0) }
     }
     mutating func appendUInt32(_ value: UInt32) {
         var le = value.littleEndian
-        withUnsafeBytes(of: &le) { append(contentsOf: $0) }
+        Swift.withUnsafeBytes(of: &le) { append(contentsOf: $0) }
     }
 }
 

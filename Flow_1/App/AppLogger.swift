@@ -118,16 +118,16 @@ class AppLogger: @unchecked Sendable {
         }
     }
     
-    nonisolated func info(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
-        log(level: .info, message: message, file: file, function: function, line: line)
+    nonisolated func info(_ message: String) {
+        log(level: .info, message: message)
     }
     
-    nonisolated func warning(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
-        log(level: .warning, message: message, file: file, function: function, line: line)
+    nonisolated func warning(_ message: String) {
+        log(level: .warning, message: message)
     }
     
-    nonisolated func error(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
-        log(level: .error, message: message, file: file, function: function, line: line)
+    nonisolated func error(_ message: String) {
+        log(level: .error, message: message)
     }
     
     nonisolated func crash(_ message: String) {
@@ -142,7 +142,7 @@ class AppLogger: @unchecked Sendable {
         }
     }
     
-    private func log(level: LogLevel, message: String) {
+    nonisolated private func log(level: LogLevel, message: String) {
         let timestamp = Self.isoFormatter.string(from: Date())
         let formattedMessage = "\(timestamp) | \(level.prefix) \(message)"
         
