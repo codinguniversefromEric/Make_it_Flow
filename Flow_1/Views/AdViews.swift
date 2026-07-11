@@ -33,28 +33,7 @@ import SwiftUI
 
 import GoogleMobileAds
 
-struct AdBannerView: UIViewControllerRepresentable {
-    func makeUIViewController(context: Context) -> UIViewController {
-        let viewController = UIViewController()
-        let bannerView = BannerView(adSize: AdSizeBanner)
-        
-        // 替換為您的 Banner 廣告單元 ID (這裡使用 Google 的測試 ID)
-        bannerView.adUnitID = Secrets.bannerAdUnitID
-        bannerView.rootViewController = viewController
-        viewController.view.addSubview(bannerView)
-        
-        bannerView.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            bannerView.centerXAnchor.constraint(equalTo: viewController.view.centerXAnchor),
-            bannerView.bottomAnchor.constraint(equalTo: viewController.view.bottomAnchor)
-        ])
-        
-        bannerView.load(Request())
-        return viewController
-    }
-    
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
-}
+
 
 
 struct InterstitialAdView: UIViewControllerRepresentable {
