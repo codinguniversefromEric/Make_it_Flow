@@ -82,10 +82,12 @@ struct ContentView: View {
                 }
                 .navigationViewStyle(.stack)
                 
-                // 廣告 Banner (若未付費)
+                // 原生廣告 (若未付費) - 放置於畫面底部
                 if !vm.subscriptionManager.isPremium {
-                    AdBannerView()
-                        .frame(height: 50)
+                    nativeAdSection
+                        .frame(height: 146)
+                        .padding(.horizontal)
+                        .padding(.bottom, 8)
                         .background(Color(UIColor.systemGroupedBackground))
                 }
             }
@@ -298,18 +300,10 @@ extension ContentView {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Library is empty. Drag a PDF here or tap the add button to get started.")
         
-        if !vm.subscriptionManager.isPremium {
-            nativeAdSection
-                .padding(.top, 40)
-        }
     }
     
     @ViewBuilder
     private var populatedLibraryView: some View {
-        if !vm.subscriptionManager.isPremium {
-            nativeAdSection
-        }
-        
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 20) {
                         ForEach(vm.libraryStore.items) { file in
                             VStack {
