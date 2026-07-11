@@ -80,6 +80,7 @@ struct ContentView: View {
                         }
                         .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
                 }
+                .navigationViewStyle(.stack)
                 
                 // 廣告 Banner (若未付費)
                 if !vm.subscriptionManager.isPremium {
@@ -274,6 +275,9 @@ extension ContentView {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())
         .onDrop(of: [.pdf], isTargeted: $vm.dragOver) { providers in vm.handleDrop(providers) }
+        .onAppear {
+            adManager.preloadAdsIfNeeded()
+        }
     }
     
     @ViewBuilder
