@@ -86,7 +86,7 @@ class YOLOLayoutParser: LayoutParser {
             let config = MLModelConfiguration()
             config.computeUnits = .all
             
-            #if !CLI_MODE
+#if !CLI_MODE
             let coreMLModel: MLModel
             if modelName == "best" {
                 coreMLModel = try best(configuration: config).model
@@ -103,7 +103,7 @@ class YOLOLayoutParser: LayoutParser {
                     coreMLModel = try best_conf0_1(configuration: config).model
                 }
             }
-            #else
+#else
             // CLI 動態載入
             var actualModelName = modelName
             if modelName == "yolov11s-doclaynet" {
@@ -112,7 +112,7 @@ class YOLOLayoutParser: LayoutParser {
             let packageURL = Bundle.module.url(forResource: actualModelName, withExtension:"mlpackage")!
             let compiledURL = try MLModel.compileModel(at: packageURL)
             let coreMLModel = try MLModel(contentsOf: compiledURL, configuration: config)
-            #endif
+#endif
             
             let newModel = try VNCoreMLModel(for: coreMLModel)
             
@@ -409,67 +409,5 @@ class YOLOLayoutParser: LayoutParser {
         }
         
         return keep
-    }
-}
-
-// MARK: - SuryaLayoutParser (High-End Engine)
-
-/// 基於 Surya 的高階版面解析器
-class SuryaLayoutParser: LayoutParser {
-    private var visionModel: VNCoreMLModel?
-    private let modelQueue = DispatchQueue(label: "com.flow.visionmodel.surya")
-    
-    /// 初始化並載入 Surya 模型
-    init() {
-        do {
-            let config = MLModelConfiguration()
-            config.computeUnits = .all
-            
-            guard let packageURL = Bundle.main.url(forResource: "surya_layout2_fp16", withExtension: "mlpackage") else {
-                AppLogger.shared.error("❌ 找不到 surya_layout2_fp16.mlpackage")
-                return
-            }
-            
-            let compiledURL = try MLModel.compileModel(at: packageURL)
-            let coreMLModel = try MLModel(contentsOf: compiledURL, configuration: config)
-            let newModel = try VNCoreMLModel(for: coreMLModel)
-            
-            modelQueue.sync {
-                self.visionModel = newModel
-            }
-            AppLogger.shared.info("✅ Surya 模型載入成功")
-        } catch {
-            AppLogger.shared.error("❌ Surya 模型載入失敗: \(error)")
-        }
-    }
-    
-    /// 執行 Surya 版面偵測 (等待實作熱力圖轉換)
-    func detectLayout(in cgImage: CGImage) async -> [LayoutBlock] {
-        let currentModel = modelQueue.sync { self.visionModel }
-        guard let model = currentModel else { return [] }
-        
-        return await withCheckedContinuation { continuation in
-            let request = VNCoreMLRequest(model: model) { request, error in
-                guard let results = request.results as? [VNCoreMLFeatureValueObservation],
-                      let featureValue = results.first?.featureValue,
-                      let multiArray = featureValue.multiArrayValue else {
-                    continuation.resume(returning: [])
-                    return
-                }
-                
-                // TODO: 階段 2.5 - 將熱力圖轉換為 Bounding Box (待實作 OpenCV 等價邏輯)
-                
-                continuation.resume(returning: [])
-            }
-            request.imageCropAndScaleOption = .scaleFill
-            
-            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-            do {
-                try handler.perform([request])
-            } catch {
-                AppLogger.shared.error("Surya 推論失敗: \(error)")
-                continuation.resume(returning: [])
-            }
-        }
     }
 }

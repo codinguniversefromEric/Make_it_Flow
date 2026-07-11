@@ -7,8 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		F22B24873001F456007AF61F /* SuryaCoreMLRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = F22B24863001F456007AF61F /* SuryaCoreMLRuntime */; };
-		F22B24893001F456007AF61F /* surya-coreml-smoke in Frameworks */ = {isa = PBXBuildFile; productRef = F22B24883001F456007AF61F /* surya-coreml-smoke */; };
 		F256C0702FE055410074FFBC /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F256C06F2FE055410074FFBC /* WidgetKit.framework */; };
 		F256C0722FE055410074FFBC /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F256C0712FE055410074FFBC /* SwiftUI.framework */; };
 		F256C0832FE055420074FFBC /* FlowWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F256C06D2FE055410074FFBC /* FlowWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -78,6 +76,8 @@
 		};
 		F2B460212FDAD06E007BBD25 /* Flow_1 */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = Flow_1;
 			sourceTree = "<group>";
 		};
@@ -97,9 +97,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F22B24873001F456007AF61F /* SuryaCoreMLRuntime in Frameworks */,
 				F279C7A82FE18A6D00A87B21 /* StoreKit.framework in Frameworks */,
-				F22B24893001F456007AF61F /* surya-coreml-smoke in Frameworks */,
 				F2BB211A2FDEC025004C455C /* Ink in Frameworks */,
 				F2BB211D2FDEC041004C455C /* ZIPFoundation in Frameworks */,
 			);
@@ -148,8 +146,6 @@
 				F256C0732FE055410074FFBC /* FlowWidget */,
 			);
 			name = FlowWidgetExtension;
-			packageProductDependencies = (
-			);
 			productName = FlowWidgetExtension;
 			productReference = F256C06D2FE055410074FFBC /* FlowWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
@@ -175,8 +171,6 @@
 			packageProductDependencies = (
 				F2BB21192FDEC025004C455C /* Ink */,
 				F2BB211C2FDEC041004C455C /* ZIPFoundation */,
-				F22B24863001F456007AF61F /* SuryaCoreMLRuntime */,
-				F22B24883001F456007AF61F /* surya-coreml-smoke */,
 			);
 			productName = Flow_1;
 			productReference = F279C6D82FE1432B00A87B21 /* Flow_1.app */;
@@ -568,14 +562,6 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		F22B24863001F456007AF61F /* SuryaCoreMLRuntime */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = SuryaCoreMLRuntime;
-		};
-		F22B24883001F456007AF61F /* surya-coreml-smoke */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = "surya-coreml-smoke";
-		};
 		F2BB21192FDEC025004C455C /* Ink */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = F2BB21182FDEC025004C455C /* XCRemoteSwiftPackageReference "Ink" */;
