@@ -11,16 +11,18 @@ import Vision
 import Combine
 
 // MARK: - 可用的 AI 模型清單
+
+/// 定義可用的視覺辨識模型
 public enum VisionModelType: String, CaseIterable, Identifiable {
     case yoloStandard = "YOLO Standard (best)"
     case yoloFast = "YOLO Fast (best_conf0.1)"
-    case yoloDocLayNet = "YOLO DocLayNet (v10s)"
-    case surya = "Surya Vision (FP16)"
     
     public var id: String { self.rawValue }
 }
 
 // MARK: - Layout Block 資料結構
+
+/// 代表單個排版區塊的幾何與語意資訊
 public struct LayoutBlock: Identifiable {
     public let id = UUID()
     public let boundingBox: CGRect // 全域正規化座標 (0~1)，原點位於左下角 (遵循 Vision 標準)
@@ -29,11 +31,15 @@ public struct LayoutBlock: Identifiable {
 }
 
 // MARK: - 抽象解析器介面
+
+/// 所有版面解析器必須實作的共用介面
 public protocol LayoutParser {
     func detectLayout(in cgImage: CGImage) async -> [LayoutBlock]
 }
 
 // MARK: - AI 視覺辨識引擎工廠 (Dynamic Dual-Engine)
+
+/// 管理與切換視覺解析引擎
 public class LayoutVisionManager: ObservableObject {
     public static let shared = LayoutVisionManager()
     
@@ -44,6 +50,7 @@ public class LayoutVisionManager: ObservableObject {
         setupEngine()
     }
     
+    /// 初始化或切換目前的視覺模型
     public func setupEngine() {
         let selectedModel = AppSettings.shared.selectedModel
         
@@ -56,17 +63,10 @@ public class LayoutVisionManager: ObservableObject {
             self.activeParser = YOLOLayoutParser(modelName: "best_conf0.1")
             self.currentParserName = "Manual: YOLO Fast"
             AppLogger.shared.info("✅ 視覺引擎已切換為：YOLO Fast (Manual)")
-        case .yoloDocLayNet:
-            self.activeParser = YOLOLayoutParser(modelName: "yolov10s_best")
-            self.currentParserName = "Manual: YOLO DocLayNet (v10s)"
-            AppLogger.shared.info("✅ 視覺引擎已切換為：YOLO DocLayNet (Manual)")
-        case .surya:
-            self.activeParser = SuryaLayoutParser()
-            self.currentParserName = "Manual: Surya Engine"
-            AppLogger.shared.info("✅ 視覺引擎已切換為：Surya (Manual)")
         }
     }
     
+    /// 偵測影像中的排版區塊
     public func detectLayout(in cgImage: CGImage) async -> [LayoutBlock] {
         guard let parser = activeParser else { return [] }
         return await parser.detectLayout(in: cgImage)
@@ -74,10 +74,13 @@ public class LayoutVisionManager: ObservableObject {
 }
 
 // MARK: - YOLOLayoutParser (Fallback Engine)
+
+/// 基於 YOLO 模型的版面解析器，包含影像切片處理
 class YOLOLayoutParser: LayoutParser {
     private var visionModel: VNCoreMLModel?
     private let modelQueue = DispatchQueue(label: "com.flow.visionmodel.yolo")
     
+    /// 初始化並載入指定的 YOLO 模型
     init(modelName: String) {
         do {
             let config = MLModelConfiguration()
@@ -112,10 +115,18 @@ class YOLOLayoutParser: LayoutParser {
             #endif
             
             let newModel = try VNCoreMLModel(for: coreMLModel)
-            newModel.featureProvider = try MLDictionaryFeatureProvider(dictionary: [
-                "iouThreshold": 0.45,
-                "confidenceThreshold": 0.25
-            ])
+            
+            var featureDict: [String: Any] = [:]
+            if coreMLModel.modelDescription.inputDescriptionsByName["iouThreshold"] != nil {
+                featureDict["iouThreshold"] = 0.45
+            }
+            if coreMLModel.modelDescription.inputDescriptionsByName["confidenceThreshold"] != nil {
+                featureDict["confidenceThreshold"] = 0.25
+            }
+            
+            if !featureDict.isEmpty {
+                newModel.featureProvider = try MLDictionaryFeatureProvider(dictionary: featureDict)
+            }
             modelQueue.sync {
                 self.visionModel = newModel
             }
@@ -124,6 +135,7 @@ class YOLOLayoutParser: LayoutParser {
         }
     }
     
+    /// 執行版面偵測，支援對長圖進行自動切片
     func detectLayout(in cgImage: CGImage) async -> [LayoutBlock] {
         let currentModel = modelQueue.sync { self.visionModel }
         guard let model = currentModel else { return [] }
@@ -177,6 +189,7 @@ class YOLOLayoutParser: LayoutParser {
         return applyNMS(blocks: allBlocks, iouThreshold: 0.5)
     }
     
+    /// 處理單一影像切片的推論與座標轉換
     private func processTile(tileImage: CGImage, tileRect: CGRect, fullWidth: CGFloat, fullHeight: CGFloat, model: VNCoreMLModel) async -> [LayoutBlock] {
         return await withCheckedContinuation { continuation in
             let request = VNCoreMLRequest(model: model) { request, error in
@@ -345,6 +358,7 @@ class YOLOLayoutParser: LayoutParser {
         }
     }
     
+    /// 將切片的區域座標轉換回全圖的正規化座標
     private func toGlobalBoundingBox(localRect: CGRect, tileRect: CGRect, fullWidth: CGFloat, fullHeight: CGFloat) -> CGRect {
         let localPixelWidth = localRect.width * tileRect.width
         let localPixelHeight = localRect.height * tileRect.height
@@ -365,6 +379,7 @@ class YOLOLayoutParser: LayoutParser {
         return CGRect(x: globalNormalizedX, y: globalNormalizedY, width: globalNormalizedWidth, height: globalNormalizedHeight)
     }
     
+    /// 執行非極大值抑制 (NMS) 過濾重疊的偵測框
     private func applyNMS(blocks: [LayoutBlock], iouThreshold: Float) -> [LayoutBlock] {
         let sortedBlocks = blocks.sorted { $0.confidence > $1.confidence }
         var keep: [LayoutBlock] = []
@@ -398,10 +413,13 @@ class YOLOLayoutParser: LayoutParser {
 }
 
 // MARK: - SuryaLayoutParser (High-End Engine)
+
+/// 基於 Surya 的高階版面解析器
 class SuryaLayoutParser: LayoutParser {
     private var visionModel: VNCoreMLModel?
     private let modelQueue = DispatchQueue(label: "com.flow.visionmodel.surya")
     
+    /// 初始化並載入 Surya 模型
     init() {
         do {
             let config = MLModelConfiguration()
@@ -425,6 +443,7 @@ class SuryaLayoutParser: LayoutParser {
         }
     }
     
+    /// 執行 Surya 版面偵測 (等待實作熱力圖轉換)
     func detectLayout(in cgImage: CGImage) async -> [LayoutBlock] {
         let currentModel = modelQueue.sync { self.visionModel }
         guard let model = currentModel else { return [] }

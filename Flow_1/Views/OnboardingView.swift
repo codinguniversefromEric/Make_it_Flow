@@ -9,6 +9,7 @@ import SwiftUI
 
 // MARK: - Onboarding Page Model
 
+// 導覽頁面資料模型
 private struct OnboardingPage: Identifiable {
     let id = UUID()
     let icon: String
@@ -18,6 +19,7 @@ private struct OnboardingPage: Identifiable {
 
 // MARK: - OnboardingView
 
+// 初次使用導覽畫面
 struct OnboardingView: View {
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
     @State private var currentPage = 0

@@ -11,6 +11,7 @@ import UniformTypeIdentifiers
 import Combine
 
 @MainActor
+// 負責主畫面狀態與業務邏輯的 ViewModel
 class ContentViewModel: ObservableObject {
     // MARK: - Dependencies
     let batchProcessor = BatchProcessor()
@@ -64,6 +65,7 @@ class ContentViewModel: ObservableObject {
     
     // MARK: - Business Logic
     
+    // 處理檔案拖放邏輯
     func handleDrop(_ providers: [NSItemProvider]) -> Bool {
         guard let provider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.pdf.identifier) }) else { return false }
         
@@ -87,6 +89,7 @@ class ContentViewModel: ObservableObject {
         return true
     }
     
+    // 處理使用者選擇的 PDF 檔案
     func handlePickedPDF(url: URL) {
         showFilePicker = false
         
@@ -131,6 +134,7 @@ class ContentViewModel: ObservableObject {
         }
     }
     
+    // 完成轉換後的處理邏輯
     func finishConversion(epubURL: URL) {
         libraryStore.addItem(
             url: epubURL,
@@ -177,6 +181,7 @@ class ContentViewModel: ObservableObject {
         }
     }
     
+    // 取消當前處理作業
     func cancelProcessing() {
         UINotificationFeedbackGenerator().notificationOccurred(.warning)
         batchProcessor.cancel()
@@ -188,6 +193,7 @@ class ContentViewModel: ObservableObject {
         }
     }
     
+    // 從 PDF 產生縮圖
     func generatePDFThumbnail(from url: URL) -> UIImage? {
         let isSecurityScoped = url.startAccessingSecurityScopedResource()
         defer { if isSecurityScoped { url.stopAccessingSecurityScopedResource() } }

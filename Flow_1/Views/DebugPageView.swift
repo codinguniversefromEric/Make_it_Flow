@@ -10,6 +10,7 @@ import SwiftUI
 import PDFKit
 import Vision
 
+// 頁面顯示與除錯主畫面
 struct DebugPageView: View {
     let document: PDFDocument
     let pageIndex: Int
@@ -68,6 +69,9 @@ struct DebugPageView: View {
         }
     }
     
+    // MARK: - 核心處理
+    
+    // 核心：使用 AI 進行版面分析並回傳渲染圖片與 Markdown
     private func renderPageWithAIAttention() async -> (UIImage?, String) {
         guard let page = document.page(at: pageIndex) else { return (nil, "載入頁面失敗") }
         

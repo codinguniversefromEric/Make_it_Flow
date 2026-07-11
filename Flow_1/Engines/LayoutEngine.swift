@@ -11,6 +11,7 @@ import Vision
 
 // MARK: - 佈局分析引擎：基於 YOLO 區塊的語意重組與幾何排序
 
+/// 版面分析與重建引擎
 enum LayoutEngine {
 
     // MARK: - Cached Regex Patterns
@@ -88,6 +89,8 @@ enum LayoutEngine {
         // 將兩者混合後，使用標準的閱讀順序排序 (分區段 -> 分欄 -> 排序)
         return sortParagraphBlocks(finalParagraphs, pageWidth: pageWidth)
     }
+
+    // MARK: - 段落排序
 
     /// 對最終的 ParagraphBlock 進行閱讀順序排序
     private static func sortParagraphBlocks(_ blocks: [ParagraphBlock], pageWidth: CGFloat) -> [ParagraphBlock] {
@@ -284,6 +287,7 @@ enum LayoutEngine {
 
     // MARK: - Old Heuristic Engine Fallback
 
+    /// 偵測頁面中的文字分欄與區域
     static func detectColumns(fragments: [TextFragment], pageWidth: CGFloat, pageHeight: CGFloat) -> [ColumnRegion] {
         guard !fragments.isEmpty, pageWidth > 0 else {
             return [ColumnRegion(xRange: 0...pageWidth, fragments: fragments)]
@@ -368,6 +372,7 @@ enum LayoutEngine {
         return columns
     }
 
+    /// 將碎片根據文字特徵與幾何間距分組為段落
     static func groupIntoParagraphs(fragments: [TextFragment], pageHeight: CGFloat) -> [ParagraphBlock] {
         guard !fragments.isEmpty else { return [] }
 
@@ -491,6 +496,7 @@ enum LayoutEngine {
         return blocks
     }
 
+    /// 純啟發式的版面解析與段落重組
     static func processPage(
         fragments: [TextFragment],
         pageWidth: CGFloat,
@@ -545,6 +551,7 @@ enum LayoutEngine {
         return allBlocks
     }
 
+    /// 利用拓撲排序決定段落的閱讀順序
     static func sortBlocksTopologically(_ blocks: [ParagraphBlock]) -> [ParagraphBlock] {
         guard blocks.count > 1 else { return blocks }
         

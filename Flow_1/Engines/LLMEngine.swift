@@ -16,6 +16,7 @@ import FoundationModels
 
 // MARK: - 全端點 LLM 語意修復引擎
 
+/// 提供文章語意修復功能，支援 AI 模型與原生規則
 class LLMEngine: ObservableObject {
     static let shared = LLMEngine()
     
@@ -39,10 +40,12 @@ class LLMEngine: ObservableObject {
     // MARK: - 初始化
 
     @MainActor
+    /// 非同步準備與載入語言模型
     func prepareModel() async {
         initializeEngine()
     }
 
+    /// 初始化修復引擎並判定可用環境
     private func initializeEngine() {
         #if canImport(FoundationModels)
         // SDK 有 FoundationModels → 嘗試檢查 runtime 可用性
@@ -69,6 +72,7 @@ class LLMEngine: ObservableObject {
         #endif
     }
 
+    /// 啟用原生規則引擎作為備案
     private func activateNativeEngine() {
         DispatchQueue.main.async {
             self.isAIAvailable = false
@@ -81,6 +85,7 @@ class LLMEngine: ObservableObject {
 
     // MARK: - 核心功能：語意修復
 
+    /// 對輸入的 Markdown 文字執行語意與排版修復
     func refineMarkdown(rawText: String) async -> String {
         await MainActor.run {
             self.isProcessing = true
@@ -122,6 +127,7 @@ class LLMEngine: ObservableObject {
 
     #if canImport(FoundationModels)
     @available(iOS 26, *)
+    /// 呼叫系統內建的語言模型進行文字修復
     private func refineWithFoundationModels(_ rawText: String) async -> String {
         let model = SystemLanguageModel.default
         guard model.availability == .available else {

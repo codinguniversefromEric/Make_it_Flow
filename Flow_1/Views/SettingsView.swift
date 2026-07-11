@@ -7,6 +7,9 @@
 
 import SwiftUI
 
+// MARK: - 主畫面
+
+// 應用程式設定畫面
 struct SettingsView: View {
     @ObservedObject var settings = AppSettings.shared
     @ObservedObject var llmEngine = LLMEngine.shared

@@ -158,7 +158,7 @@
       ],
       "otherArguments" : [
         "-target",
-        "arm64-apple-macosx13.0",
+        "arm64-apple-macosx14.0",
         "-incremental",
         "-enable-batch-mode",
         "-serialize-diagnostics",
@@ -330,7 +330,7 @@
       "-I",
       "/Users/giyoshimiken/Documents/Flow_1/.build/arm64-apple-macosx/debug/Modules",
       "-target",
-      "arm64-apple-macosx13.0",
+      "arm64-apple-macosx14.0",
       "-incremental",
       "-enable-batch-mode",
       "-serialize-diagnostics",

@@ -7,6 +7,8 @@
 
 import Foundation
 
+// MARK: - iOS Platform
+
 #if os(iOS) || os(tvOS) || os(watchOS)
 import UIKit
 public typealias AppColor = UIColor
@@ -28,6 +30,8 @@ extension AppImage {
         return self.jpegData(compressionQuality: compressionQuality)
     }
 }
+// MARK: - macOS Platform
+
 #elseif os(macOS)
 import AppKit
 public typealias AppColor = NSColor

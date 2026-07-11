@@ -7,6 +7,9 @@
 
 import SwiftUI
 
+// MARK: - 主畫面
+
+// 系統日誌檢視畫面
 struct LogViewerView: View {
     @State private var logContent: String = "Loading..."
     
@@ -52,6 +55,7 @@ struct LogViewerView: View {
         }
     }
     
+    // 讀取日誌檔案內容
     private func loadLogs() {
         if let url = AppLogger.shared.logFileURL,
            let data = try? Data(contentsOf: url),

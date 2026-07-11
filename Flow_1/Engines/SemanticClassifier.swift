@@ -10,6 +10,7 @@ import CoreGraphics
 
 // MARK: - 語意分類器：基於評分累計與 sigmoid 信心度的多特徵分類
 
+/// 負責將段落區塊分類為不同的語意角色
 enum SemanticClassifier {
 
     // MARK: - Cached Regex Patterns
@@ -147,6 +148,7 @@ enum SemanticClassifier {
 
     // MARK: - 輔助判斷
 
+    /// 判斷文字是否主要由數字組成
     private static func isHighlyNumeric(_ text: String) -> Bool {
         let digits = text.filter { $0.isNumber }
         let nonSpace = text.filter { !$0.isWhitespace }
@@ -154,6 +156,7 @@ enum SemanticClassifier {
         return CGFloat(digits.count) / CGFloat(nonSpace.count) > 0.5
     }
 
+    /// 判斷是否符合列表編號格式
     private static func matchesNumberedList(_ text: String) -> Bool {
         let range = NSRange(text.startIndex..., in: text)
         for regex in numberedListPatterns {
@@ -164,6 +167,7 @@ enum SemanticClassifier {
         return false
     }
     
+    /// 判斷是否為章節標題關鍵字
     private static func matchesChapter(_ text: String) -> Bool {
         let range = NSRange(text.startIndex..., in: text)
         for regex in chapterPatterns {
@@ -176,6 +180,7 @@ enum SemanticClassifier {
 
     // MARK: - 工具
 
+    /// 判斷該角色區塊是否應在最終輸出被捨棄
     static func shouldDrop(_ role: SemanticRole) -> Bool {
         switch role {
         case .pageHeader, .pageFooter, .pageNumber:
@@ -185,6 +190,7 @@ enum SemanticClassifier {
         }
     }
 
+    /// 將段落區塊轉換為對應的 Markdown 格式
     static func toMarkdown(block: ParagraphBlock) -> String {
         let text = block.unifiedText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return "" }

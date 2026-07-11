@@ -16,6 +16,9 @@ import CoreText
 import UIKit
 #endif
 
+// MARK: - Batch Processor
+
+/// 批次處理器，負責處理 PDF 的讀取、分析、與匯出流程
 class BatchProcessor: ObservableObject {
     @Published var isProcessing = false
     @Published var progress: Double = 0.0
@@ -37,11 +40,13 @@ class BatchProcessor: ObservableObject {
 #endif
     }
     
+    /// 取消當前處理任務
     func cancel() {
         self.isCancelled = true
         self.currentTask?.cancel()
     }
     
+    /// 非同步匯出 PDF 文件，包含版面分析與 Markdown/EPUB 產生
     @MainActor
     func exportDocument(_ document: PDFDocument, fileName: String? = nil) async {
         AppLogger.shared.info("Starting PDF export. Total pages: \(document.pageCount)")
@@ -259,6 +264,104 @@ class BatchProcessor: ObservableObject {
                         textFragments.append(fragment)
                     }
                 }
+                
+                // ═══════════════════════════════════════════
+                // STAGE 2.5: Vision OCR Fallback
+                // ═══════════════════════════════════════════
+                
+                let needsFullPageOCR = textFragments.count < 5
+                
+                if needsFullPageOCR {
+                    AppLogger.shared.info("⚠️ 偵測到掃描版 PDF (第 \(pageIndex + 1) 頁文字碎片極少)，啟動全頁 OCR Fallback...")
+                    let ocrFragments = await BatchProcessor.performOCR(on: validCGImg, scale: scale, pageBounds: pageBounds)
+                    
+                    for fragment in ocrFragments {
+                        var handledByVisualRegion = false
+                        let lineArea = fragment.bounds.width * fragment.bounds.height
+                        
+                        for (index, region) in visualRegions.enumerated() {
+                            let intersection = region.rect.intersection(fragment.bounds)
+                            if !intersection.isNull {
+                                let intersectionArea = intersection.width * intersection.height
+                                let expandedRegion = region.rect.insetBy(dx: -5, dy: -5)
+                                let lineMid = CGPoint(x: fragment.bounds.midX, y: fragment.bounds.midY)
+                                
+                                if (lineArea > 0 && intersectionArea / lineArea > 0.4) || expandedRegion.contains(lineMid) {
+                                    if region.label == "Table" {
+                                        tableFragments[index, default: []].append(fragment)
+                                    }
+                                    handledByVisualRegion = true
+                                    break
+                                }
+                            }
+                        }
+                        if !handledByVisualRegion {
+                            textFragments.append(fragment)
+                        }
+                    }
+                } else {
+                    for (index, region) in visualRegions.enumerated() {
+                        if region.label == "Table", (tableFragments[index]?.count ?? 0) < 4 {
+                            AppLogger.shared.info("⚠️ 偵測到圖片型表格 (缺少文字碎片)，啟動區域 OCR Fallback...")
+                            let normalizedRect = CGRect(
+                                x: max(0, region.rect.minX / scaledSize.width),
+                                y: max(0, 1.0 - (region.rect.maxY / scaledSize.height)),
+                                width: min(1.0, region.rect.width / scaledSize.width),
+                                height: min(1.0, region.rect.height / scaledSize.height)
+                            )
+                            
+                            let ocrFragments = await BatchProcessor.performOCR(on: validCGImg, scale: scale, pageBounds: pageBounds, regionOfInterest: normalizedRect)
+                            tableFragments[index, default: []].append(contentsOf: ocrFragments)
+                        }
+                    }
+                }
+                
+                // ═══════════════════════════════════════════
+                // STAGE 2.6: 視覺區塊實體擷取 (Formula, Picture, Figure)
+                // ═══════════════════════════════════════════
+                
+                for (index, region) in visualRegions.enumerated() {
+                    if region.label == "Formula" || region.label == "Picture" || region.label == "Figure" {
+                        AppLogger.shared.info("🖼️ 擷取視覺區塊 (\(region.label))...")
+                        let normalizedRect = CGRect(
+                            x: max(0, region.rect.minX / scaledSize.width),
+                            y: max(0, 1.0 - (region.rect.maxY / scaledSize.height)),
+                            width: min(1.0, region.rect.width / scaledSize.width),
+                            height: min(1.0, region.rect.height / scaledSize.height)
+                        )
+                        
+                        let cropRect = CGRect(
+                            x: CGFloat(validCGImg.width) * normalizedRect.minX,
+                            y: CGFloat(validCGImg.height) * normalizedRect.minY,
+                            width: CGFloat(validCGImg.width) * normalizedRect.width,
+                            height: CGFloat(validCGImg.height) * normalizedRect.height
+                        )
+                        
+                        if let croppedImg = validCGImg.cropping(to: cropRect) {
+                            let fileName = "\(region.label.lowercased())_p\(pageIndex + 1)_\(index).png"
+                            let fileURL = assetsDir.appendingPathComponent(fileName)
+                            
+                            // 跨平台儲存 CGImage 為 PNG
+                            if let destination = CGImageDestinationCreateWithURL(fileURL as CFURL, "public.png" as CFString, 1, nil) {
+                                CGImageDestinationAddImage(destination, croppedImg, nil)
+                                CGImageDestinationFinalize(destination)
+                            }
+                            
+                            // 插入 Markdown 圖片連結，讓 LayoutEngine 安排順序
+                            let mdLink = "![\(region.label)](assets/\(fileName))"
+                            let mdText = region.label == "Formula" ? "$$\n\(mdLink)\n$$" : mdLink
+                            
+                            let fragment = TextFragment(
+                                text: mdText,
+                                bounds: region.rect,
+                                fontSize: 12.0 * scale,
+                                isBold: false
+                            )
+                            textFragments.append(fragment)
+                        }
+                    }
+                }
+
                 
                 // ═══════════════════════════════════════════
                 // STAGE 3: 佈局分析引擎 → 基於 YOLO 區塊的幾何重組
@@ -488,11 +591,57 @@ class BatchProcessor: ObservableObject {
     }
     
     
+    // MARK: - OCR 降級引擎
+    
+    private static func performOCR(on cgImage: CGImage, scale: CGFloat, pageBounds: CGRect, regionOfInterest: CGRect? = nil) async -> [TextFragment] {
+        return await Task.detached(priority: .userInitiated) {
+            var fragments: [TextFragment] = []
+            let request = VNRecognizeTextRequest()
+            request.recognitionLevel = .accurate
+            request.usesLanguageCorrection = true
+            request.recognitionLanguages = ["zh-Hant", "en-US"]
+            if let roi = regionOfInterest {
+                request.regionOfInterest = roi
+            }
+            
+            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+            do {
+                try handler.perform([request])
+                guard let observations = request.results else { return fragments }
+                
+                let scaledSize = CGSize(width: pageBounds.width * scale, height: pageBounds.height * scale)
+                
+                for obs in observations {
+                    guard let topCandidate = obs.topCandidates(1).first else { continue }
+                    
+                    let absoluteRect = VNImageRectForNormalizedRect(obs.boundingBox, Int(scaledSize.width), Int(scaledSize.height))
+                    let displayRect = CGRect(
+                        x: absoluteRect.minX,
+                        y: scaledSize.height - absoluteRect.maxY,
+                        width: absoluteRect.width,
+                        height: absoluteRect.height
+                    )
+                    
+                    let fragment = TextFragment(
+                        text: topCandidate.string,
+                        bounds: displayRect,
+                        fontSize: absoluteRect.height,
+                        isBold: false
+                    )
+                    fragments.append(fragment)
+                }
+            } catch {
+                AppLogger.shared.error("OCR 失敗: \(error)")
+            }
+            return fragments
+        }.value
+    }
+
     // MARK: - 圖片裁切工具
     
     class PDFImageExtractor {
         
-        /// 直接從已經渲染好的全頁圖片中裁切，100% 吻合 YOLO 視角！
+        /// 直接從全頁圖片中裁切出指定區域並儲存為 JPEG
         static func cropAndSaveImage(from sourceImage: AppImage, cropRect: CGRect, imageName: String, assetsURL: URL) -> String? {
             
             // 1. 取出底層的高畫質 CGImage

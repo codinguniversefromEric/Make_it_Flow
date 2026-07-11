@@ -8,6 +8,8 @@
 import Foundation
 import CoreGraphics
 
+// MARK: - 表格結構解析器
+
 /// 啟發式表格結構解析器 (Rule-based Table Structure Recognition)
 enum TableReconstructor {
     
@@ -16,6 +18,8 @@ enum TableReconstructor {
     ///   - fragments: 落在表格視覺區域內的文字碎片
     ///   - tableBounds: 表格的邊界 (顯示座標系)
     /// - Returns: 若成功重建則回傳 Markdown 表格字串，否則回傳 nil (交由影像裁切處理)
+    // MARK: - 核心解析方法
+    
     static func reconstruct(fragments: [TextFragment], tableBounds: CGRect) -> String? {
         guard fragments.count >= 4 else {
             // 碎片太少，可能是圖片表格或無法擷取文字，退回裁圖

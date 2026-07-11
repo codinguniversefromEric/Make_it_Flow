@@ -5,6 +5,7 @@ import QuickLook
 
 // MARK: - 動畫狀態
 
+// 動畫狀態枚舉
 enum AnimationState {
     case idle
     case showingThumbnail
@@ -13,6 +14,7 @@ enum AnimationState {
 }
 
 // MARK: - 主畫面整合
+// 應用程式主畫面整合視圖
 struct ContentView: View {
     @StateObject private var vm = ContentViewModel()
     @State private var isEditing = false
@@ -217,6 +219,7 @@ extension ContentView {
     }
     
     // 🌟 統一的首頁書庫 (Home Library)
+    // 首頁書庫視圖
     private var homeLibraryView: some View {
         ZStack {
             ScrollView {
@@ -433,6 +436,7 @@ extension ContentView {
 }
 
 // MARK: - 流暢的 Shape 水滴進度條 (無 Canvas 負擔)
+// 流暢水波紋進度條視圖
 struct GlassLiquidView: View {
     var progress: Double // 0.0 ~ 1.0
     var islandY: CGFloat
@@ -511,6 +515,7 @@ struct WaveShape: Shape {
 
 
 // MARK: - UIDocumentPickerViewController Wrapper
+// PDF 檔案選擇器
 struct PDFDocumentPicker: UIViewControllerRepresentable {
     let onPick: (URL) -> Void
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
@@ -546,6 +551,7 @@ struct PDFDocumentPicker: UIViewControllerRepresentable {
 }
 
 // MARK: - 座標偵測工具
+// 動態島座標紀錄鍵
 struct IslandAnchorKey: PreferenceKey {
     static var defaultValue: CGPoint = .zero
     static func reduce(value: inout CGPoint, nextValue: () -> CGPoint) {
@@ -567,6 +573,7 @@ struct AnchorDetector: View {
 }
 
 // MARK: - 簡易閱讀器
+// 簡易 EPUB 閱讀器
 struct EPUBReaderView: View {
     let file: LibraryItem
     @Environment(\.dismiss) private var dismiss
@@ -609,6 +616,7 @@ struct QuickLookPreview: UIViewControllerRepresentable {
 }
 
 // MARK: - FaceID 風格打勾動畫
+// FaceID 風格的打勾動畫視圖
 struct FaceIDCheckmarkView: View {
     @State private var drawCircle: CGFloat = 0.0
     @State private var drawCheck: CGFloat = 0.0

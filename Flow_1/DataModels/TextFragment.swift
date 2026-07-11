@@ -18,6 +18,8 @@ struct TextFragment: Sendable {
     let isBold: Bool
 }
 
+// MARK: - Semantic Role
+
 /// 段落語意角色
 enum SemanticRole: String, Sendable {
     case title          // 文件標題 (size ≥ 1.6× body, bold, 頁面上方)
@@ -33,6 +35,8 @@ enum SemanticRole: String, Sendable {
     case pageFooter     // 頁腳 → 應被丟棄
     case pageNumber     // 頁碼 → 應被丟棄
 }
+
+// MARK: - Paragraph Block
 
 /// 聚合後的段落區塊
 struct ParagraphBlock: Sendable {
@@ -77,6 +81,8 @@ struct ParagraphBlock: Sendable {
         return bounds.midY / pageHeight
     }
 }
+
+// MARK: - Column Region
 
 /// 欄位區域
 struct ColumnRegion: Sendable {

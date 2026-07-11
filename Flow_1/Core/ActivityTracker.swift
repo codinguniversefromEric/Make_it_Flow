@@ -10,6 +10,9 @@ import Foundation
 #if os(iOS)
 import ActivityKit
 
+// MARK: - Activity Tracking
+
+/// 追蹤與管理動態島及鎖定畫面的即時活動
 actor ActivityTracker {
     private var currentActivity: Activity<FlowWidgetAttributes>? = nil
     
@@ -26,6 +29,7 @@ actor ActivityTracker {
         }
     }
     
+    /// 開始追蹤即時活動
     func start(documentName: String) {
         if ActivityAuthorizationInfo().areActivitiesEnabled {
             let attributes = FlowWidgetAttributes(documentName: documentName)
@@ -42,6 +46,7 @@ actor ActivityTracker {
         }
     }
     
+    /// 更新即時活動進度與狀態訊息
     func update(progress: Double, message: String) async {
         guard let activity = currentActivity else { return }
         let currentState = FlowWidgetAttributes.ContentState(progress: progress, statusMessage: message)
@@ -52,6 +57,7 @@ actor ActivityTracker {
         }
     }
     
+    /// 結束即時活動
     func end(progress: Double, message: String) async {
         guard let activity = currentActivity else { return }
         let finalState = FlowWidgetAttributes.ContentState(progress: progress, statusMessage: message)
@@ -71,9 +77,12 @@ actor ActivityTracker {
 }
 #endif
 
+// MARK: - Intents
+
 #if os(iOS)
 import AppIntents
 
+/// 取消轉換任務的意圖，供 Live Activity 介面使用
 @available(iOS 16.1, *)
 public struct CancelConversionIntent: LiveActivityIntent {
     public static var title: LocalizedStringResource = "Cancel Conversion"

@@ -10,6 +10,7 @@ import StoreKit
 import Combine
 
 @MainActor
+// 處理 StoreKit 2 訂閱、購買與免費額度的管理器
 class SubscriptionManager: ObservableObject {
     static let shared = SubscriptionManager()
     

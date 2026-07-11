@@ -9,6 +9,8 @@ import Foundation
 import CoreGraphics
 import PDFKit
 
+// MARK: - Style Registry
+
 /// 全域文件樣式分析器
 /// 預先掃描整份文件，建立字型大小分佈基準，以提升分類準確度。
 struct StyleRegistry: Sendable {

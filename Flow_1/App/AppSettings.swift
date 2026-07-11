@@ -9,6 +9,9 @@ import Foundation
 import SwiftUI
 import Combine
 
+// MARK: - App Settings
+
+/// 全域應用程式設定，管理使用者偏好設定
 class AppSettings: ObservableObject {
     static let shared = AppSettings()
     
@@ -17,6 +20,8 @@ class AppSettings: ObservableObject {
     static let showDeveloperSettings = true
     
     // MARK: - Persisted Keys
+    
+    /// UserDefaults 所使用的 Keys
     private enum Keys {
         static let selectedModel = "selectedVisionModel"
         static let useAI = "useAIRefinement"
@@ -44,8 +49,8 @@ class AppSettings: ObservableObject {
     }
     
     private init() {
-        let savedModelRaw = UserDefaults.standard.string(forKey: Keys.selectedModel) ?? VisionModelType.yoloDocLayNet.rawValue
-        self.selectedModel = VisionModelType(rawValue: savedModelRaw) ?? .yoloDocLayNet
+        let savedModelRaw = UserDefaults.standard.string(forKey: Keys.selectedModel) ?? VisionModelType.yoloStandard.rawValue
+        self.selectedModel = VisionModelType(rawValue: savedModelRaw) ?? .yoloStandard
         
         self.useAI = UserDefaults.standard.object(forKey: Keys.useAI) as? Bool ?? true
         

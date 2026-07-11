@@ -26,6 +26,7 @@ import SwiftUI
 */
 
 // MARK: - Banner Ad Placeholder
+// 橫幅廣告佔位區
 struct AdBannerView: View {
     var body: some View {
         ZStack {
@@ -38,6 +39,7 @@ struct AdBannerView: View {
 }
 
 // MARK: - Interstitial Ad Placeholder
+// 插頁式廣告佔位區
 struct InterstitialAdView: View {
     let onDismiss: () -> Void
     

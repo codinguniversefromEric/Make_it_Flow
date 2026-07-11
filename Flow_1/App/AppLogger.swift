@@ -8,6 +8,9 @@
 import Foundation
 import os
 
+// MARK: - Enums
+
+/// 日誌層級定義
 enum LogLevel: String {
     case info = "INFO"
     case warning = "WARNING"
@@ -24,6 +27,9 @@ enum LogLevel: String {
     }
 }
 
+// MARK: - App Logger
+
+/// 應用程式日誌記錄器，負責將 Log 寫入檔案與控制台
 class AppLogger {
     static let shared = AppLogger()
     
@@ -99,6 +105,7 @@ class AppLogger {
     
     // MARK: - Logging API
     
+    /// 清除所有日誌內容
     func clearLogs() {
         guard let url = currentLogURL else { return }
         logQueue.async {

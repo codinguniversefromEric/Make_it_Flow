@@ -9,6 +9,9 @@ import SwiftUI
 
 import ActivityKit
 
+// MARK: - App Delegate
+
+/// 應用程式委任，負責處理生命週期事件
 class AppDelegate: NSObject, UIApplicationDelegate {
     func applicationWillTerminate(_ application: UIApplication) {
         // App 被強制滑掉 (Force Quit) 時，立刻把所有的 Live Activity 殺掉，
@@ -34,6 +37,9 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     }
 }
 
+// MARK: - Main App
+
+/// 應用程式進入點
 @main
 struct Flow_1App: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate

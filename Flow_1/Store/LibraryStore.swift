@@ -9,6 +9,7 @@ import UIKit
 import Combine
 
 // MARK: - 資料模型
+// 書庫項目資料模型
 struct LibraryItem: Codable, Identifiable {
     let id: UUID
     let url: URL
@@ -19,6 +20,7 @@ struct LibraryItem: Codable, Identifiable {
 }
 
 // MARK: - 持久化書庫
+// 負責管理與持久化 EPUB 書庫
 class LibraryStore: ObservableObject {
     static let shared = LibraryStore()
 

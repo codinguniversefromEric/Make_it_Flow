@@ -8,6 +8,9 @@
 import SwiftUI
 import StoreKit
 
+// MARK: - 主畫面
+
+// 付費解鎖畫面
 struct PaywallView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var subscriptionManager: SubscriptionManager
@@ -111,6 +114,7 @@ struct PaywallView: View {
         }
     }
     
+    // 處理購買邏輯
     private func purchase(_ product: Product) async {
         isPurchasing = true
         errorText = nil
@@ -125,6 +129,7 @@ struct PaywallView: View {
 
 // MARK: - Subviews
 
+// 功能特色列
 struct FeatureRow: View {
     let icon: String
     let title: String
@@ -148,6 +153,7 @@ struct FeatureRow: View {
     }
 }
 
+// 產品選項列
 struct ProductRow: View {
     let product: Product
     

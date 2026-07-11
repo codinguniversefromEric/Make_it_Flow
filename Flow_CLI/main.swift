@@ -20,7 +20,7 @@ func main() async {
     
     // Initialize required managers
     AppLogger.shared.info("Starting Flow_CLI processing for \(inputURL.lastPathComponent)")
-    AppSettings.shared.selectedModel = .yoloDocLayNet
+    AppSettings.shared.selectedModel = .yoloStandard
     let processor = BatchProcessor()
     
     await processor.exportDocument(document, fileName: inputURL.deletingPathExtension().lastPathComponent)

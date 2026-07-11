@@ -4,7 +4,20 @@
 
     ],
     "dependencies" : [
-
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "suryacoremlruntime",
+          "kind" : "fileSystem",
+          "location" : "/Users/giyoshimiken/Documents/my_surya_model/native/SuryaCoreMLRuntime",
+          "name" : "SuryaCoreMLRuntime"
+        },
+        "state" : {
+          "name" : "fileSystem",
+          "path" : "/Users/giyoshimiken/Documents/my_surya_model/native/SuryaCoreMLRuntime"
+        },
+        "subpath" : "suryacoremlruntime"
+      }
     ],
     "prebuilts" : [
 

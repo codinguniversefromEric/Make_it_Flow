@@ -9,6 +9,7 @@
 import Foundation
 import Ink
 
+/// 負責將 Markdown 內容轉換並封裝為合規的 EPUB 檔案
 class EPUBSynthesizer {
     
     // MARK: - Cached Regex Patterns
@@ -154,6 +155,7 @@ class EPUBSynthesizer {
 
     // MARK: - 標準通道：單頁論文引擎
 
+    /// 建立單頁或無分章論文的 EPUB 檔案
     static func createEPUB(title: String, markdown: String, assetsURL: URL) -> URL? {
         let fm = FileManager.default
         let epubURL = fm.temporaryDirectory.appendingPathComponent("\(title).epub")
@@ -294,6 +296,7 @@ class EPUBSynthesizer {
 
     // MARK: - 書籍專用通道：多章節引擎
 
+    /// 建立多章節書籍的 EPUB 檔案
     static func createBookEPUB(title: String, fullMarkdown: String, assetsURL: URL) -> URL? {
         let fm = FileManager.default
         let epubURL = fm.temporaryDirectory.appendingPathComponent("\(title).epub")
