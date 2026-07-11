@@ -25,55 +25,10 @@ import SwiftUI
   4. 解開下方程式碼的註解並移除目前的佔位區 (Placeholder) 程式碼。
 */
 
-// MARK: - Banner Ad Placeholder
-// 橫幅廣告佔位區
-struct AdBannerView: View {
-    var body: some View {
-        ZStack {
-            Color(UIColor.secondarySystemBackground)
-            Text("AdMob Banner Placeholder")
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-    }
-}
 
-// MARK: - Interstitial Ad Placeholder
-// 插頁式廣告佔位區
-struct InterstitialAdView: View {
-    let onDismiss: () -> Void
-    
-    var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-            VStack(spacing: 32) {
-                Text("Interstitial Ad Placeholder")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                
-                Text("This will be a full-screen ad from Google AdMob.")
-                    .multilineTextAlignment(.center)
-                    .foregroundColor(.gray)
-                    .padding()
-                
-                Button(action: onDismiss) {
-                    Text("Close Ad")
-                        .font(.headline)
-                        .padding()
-                        .frame(maxWidth: 200)
-                        .background(Color.accentColor)
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
-                }
-            }
-        }
-    }
-}
 
-/* 
 // ========================================================
-// 真實 AdMob 程式碼 (解開註解並替換上方 Placeholder)
+// 真實 AdMob 程式碼
 // ========================================================
 
 import GoogleMobileAds
@@ -81,10 +36,10 @@ import GoogleMobileAds
 struct AdBannerView: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIViewController {
         let viewController = UIViewController()
-        let bannerView = GADBannerView(adSize: GADAdSizeBanner)
+        let bannerView = BannerView(adSize: AdSizeBanner)
         
         // 替換為您的 Banner 廣告單元 ID (這裡使用 Google 的測試 ID)
-        bannerView.adUnitID = "ca-app-pub-3940256099942544/2934735716"
+        bannerView.adUnitID = Secrets.bannerAdUnitID
         bannerView.rootViewController = viewController
         viewController.view.addSubview(bannerView)
         
@@ -94,12 +49,13 @@ struct AdBannerView: UIViewControllerRepresentable {
             bannerView.bottomAnchor.constraint(equalTo: viewController.view.bottomAnchor)
         ])
         
-        bannerView.load(GADRequest())
+        bannerView.load(Request())
         return viewController
     }
     
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
 }
+
 
 struct InterstitialAdView: UIViewControllerRepresentable {
     let onDismiss: () -> Void
@@ -113,8 +69,8 @@ struct InterstitialAdView: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: InterstitialAdViewController, context: Context) {}
 }
 
-class InterstitialAdViewController: UIViewController, GADFullScreenContentDelegate {
-    var interstitial: GADInterstitialAd?
+class InterstitialAdViewController: UIViewController, FullScreenContentDelegate {
+    var interstitial: InterstitialAd?
     var onDismiss: (() -> Void)?
     
     override func viewDidLoad() {
@@ -124,29 +80,28 @@ class InterstitialAdViewController: UIViewController, GADFullScreenContentDelega
     }
     
     func loadAd() {
-        // 替換為您的 Interstitial 廣告單元 ID (這裡使用 Google 的測試 ID)
-        let adUnitID = "ca-app-pub-3940256099942544/4411468910"
-        let request = GADRequest()
+        let adUnitID = Secrets.interstitialAdUnitID
+        let request = Request()
         
-        GADInterstitialAd.load(withAdUnitID: adUnitID, request: request) { [weak self] ad, error in
+        InterstitialAd.load(with: adUnitID, request: request) { [weak self] ad, error in
             if let error = error {
                 print("Failed to load interstitial ad with error: \(error.localizedDescription)")
-                // 載入失敗直接視同關閉廣告
                 self?.onDismiss?()
                 return
             }
             self?.interstitial = ad
             self?.interstitial?.fullScreenContentDelegate = self
-            self?.interstitial?.present(fromRootViewController: self!)
+            if let self = self {
+                self.interstitial?.present(from: self)
+            }
         }
     }
     
-    func adDidDismissFullScreenContent(_ ad: GADFullScreenPresentingAd) {
+    func adDidDismissFullScreenContent(_ ad: FullScreenPresentingAd) {
         onDismiss?()
     }
     
-    func ad(_ ad: GADFullScreenPresentingAd, didFailToPresentFullScreenContentWithError error: Error) {
+    func ad(_ ad: FullScreenPresentingAd, didFailToPresentFullScreenContentWithError error: Error) {
         onDismiss?()
     }
 }
-*/
