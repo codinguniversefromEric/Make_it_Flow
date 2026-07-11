@@ -83,6 +83,7 @@ struct ContentView: View {
                 .navigationViewStyle(.stack)
                 
                 // 原生廣告 (若未付費) - 放置於畫面底部
+                #if !DEBUG
                 if !vm.subscriptionManager.isPremium {
                     nativeAdSection
                         .frame(height: 290) // increased height to accommodate MediaView
@@ -90,6 +91,7 @@ struct ContentView: View {
                         .padding(.bottom, 8)
                         .background(Color(UIColor.systemGroupedBackground))
                 }
+                #endif
             }
             
             // 隱藏的定位器

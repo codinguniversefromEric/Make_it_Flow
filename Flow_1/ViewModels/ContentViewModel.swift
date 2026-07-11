@@ -151,7 +151,13 @@ class ContentViewModel: ObservableObject {
                     pdfDocument = nil
                     batchProcessor.exportedFileURL = nil
                     if !subscriptionManager.isPremium {
+                        #if !DEBUG
                         showInterstitialAd = true
+                        #else
+                        showSuccessHUD = true
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        scheduleHUDDismiss()
+                        #endif
                     } else {
                         showSuccessHUD = true
                         UINotificationFeedbackGenerator().notificationOccurred(.success)
