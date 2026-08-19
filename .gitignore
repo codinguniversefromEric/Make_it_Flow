@@ -1,6 +1,8 @@
 *.bin
 *.safetensors
 *.mlpackage
+*.mlmodel
+*.mlmodelc
 
 # Secrets
 Flow_1/Core/Secrets.swift

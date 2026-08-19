@@ -88,20 +88,12 @@ class YOLOLayoutParser: LayoutParser {
             
 #if !CLI_MODE
             let coreMLModel: MLModel
-            if modelName == "best" {
-                coreMLModel = try best(configuration: config).model
-            } else if modelName == "best_conf0.1" {
-                coreMLModel = try best_conf0_1(configuration: config).model
+            let bundle = Bundle.main
+            if let packageURL = bundle.url(forResource: modelName, withExtension:"mlmodelc") ?? bundle.url(forResource: modelName, withExtension:"mlpackage") {
+                let compiledURL = try MLModel.compileModel(at: packageURL)
+                coreMLModel = try MLModel(contentsOf: compiledURL, configuration: config)
             } else {
-                // 動態載入新模型
-                let bundle = Bundle.main
-                if let packageURL = bundle.url(forResource: modelName, withExtension:"mlmodelc") ?? bundle.url(forResource: modelName, withExtension:"mlpackage") {
-                    let compiledURL = try MLModel.compileModel(at: packageURL)
-                    coreMLModel = try MLModel(contentsOf: compiledURL, configuration: config)
-                } else {
-                    // Fallback
-                    coreMLModel = try best_conf0_1(configuration: config).model
-                }
+                fatalError("CoreML Model '\(modelName)' not found! Please run 'sh scripts/download_models.sh' and drag the Models folder into Xcode.")
             }
 #else
             // CLI 動態載入

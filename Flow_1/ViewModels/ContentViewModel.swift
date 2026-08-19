@@ -15,19 +15,16 @@ import Combine
 class ContentViewModel: ObservableObject {
     // MARK: - Dependencies
     let batchProcessor = BatchProcessor()
-    let subscriptionManager = SubscriptionManager.shared
     let libraryStore = LibraryStore.shared
     let settings = AppSettings.shared
     
     // MARK: - UI State
-    @Published var showPaywall = false
     @Published var showFilePicker = false
     @Published var isSettingsPresented = false
     @Published var dragOver = false
     @Published var showSuccessHUD = false
     @Published var showErrorAlert = false
     @Published var errorMessage = ""
-    @Published var showInterstitialAd = false
 
     
     // MARK: - Document State
@@ -46,10 +43,7 @@ class ContentViewModel: ObservableObject {
             self?.objectWillChange.send()
         }.store(in: &cancellables)
         
-        subscriptionManager.objectWillChange.sink { [weak self] _ in
-            self?.objectWillChange.send()
-        }.store(in: &cancellables)
-        
+
         libraryStore.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
         }.store(in: &cancellables)
@@ -150,34 +144,15 @@ class ContentViewModel: ObservableObject {
                 if !settings.debugMode {
                     pdfDocument = nil
                     batchProcessor.exportedFileURL = nil
-                    if !subscriptionManager.isPremium {
-                        #if !DEBUG
-                        showInterstitialAd = true
-                        #else
-                        showSuccessHUD = true
-                        UINotificationFeedbackGenerator().notificationOccurred(.success)
-                        scheduleHUDDismiss()
-                        #endif
-                    } else {
-                        showSuccessHUD = true
-                        UINotificationFeedbackGenerator().notificationOccurred(.success)
-                        scheduleHUDDismiss()
-                    }
+                    showSuccessHUD = true
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    scheduleHUDDismiss()
                 }
             }
         }
     }
     
-    // Call this from AdView when ad is dismissed
-    func onInterstitialAdDismissed() {
-        if !settings.debugMode {
-            withAnimation(.easeInOut(duration: 0.3)) {
-                showSuccessHUD = true
-            }
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
-            scheduleHUDDismiss()
-        }
-    }
+
     
     private func scheduleHUDDismiss() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {

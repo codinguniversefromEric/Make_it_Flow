@@ -13,34 +13,12 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject var settings = AppSettings.shared
     @ObservedObject var llmEngine = LLMEngine.shared
-    @ObservedObject var subscriptionManager = SubscriptionManager.shared
     @Environment(\.dismiss) private var dismiss
-    @State private var showPaywall = false
     
     var body: some View {
         NavigationView {
             List {
-                // MARK: - Premium
-                Section {
-                    if subscriptionManager.isPremium {
-                        HStack {
-                            Label("Flow Premium", systemImage: "star")
-                                .foregroundColor(.accentColor)
-                            Spacer()
-                            Text("Active")
-                                .foregroundColor(.secondary)
-                        }
-                    } else {
-                        Button {
-                            showPaywall = true
-                        } label: {
-                            Label("remove ads", systemImage: "eraser")
-                                .foregroundColor(.accentColor)
-                                .font(.headline)
-                        }
-                    }
-                }
-                
+
                 // MARK: - AI 引擎
                 if llmEngine.isAIAvailable {
                     Section {
@@ -113,6 +91,17 @@ struct SettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    
+                    Link(destination: URL(string: "https://github.com/codinguniversefromEric/Make_it_Flow.git")!) {
+                        HStack {
+                            Label("Donate (GitHub)", systemImage: "heart.fill")
+                                .foregroundColor(.pink)
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
                 } header: {
                     Text("ABOUT")
                 }
@@ -124,10 +113,6 @@ struct SettingsView: View {
                     Button("Done") { dismiss() }
                         .fontWeight(.semibold)
                 }
-            }
-            .sheet(isPresented: $showPaywall) {
-                PaywallView()
-                    .environmentObject(subscriptionManager)
             }
         }
     }

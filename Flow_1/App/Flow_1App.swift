@@ -7,15 +7,13 @@
 
 import SwiftUI
 import ActivityKit
-import GoogleMobileAds
-import AppTrackingTransparency
+
 
 // MARK: - App Delegate
 
 /// 應用程式委任，負責處理生命週期事件
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
-        // Google Mobile Ads SDK 的初始化移至請求隱私權後執行
         return true
     }
     func applicationWillTerminate(_ application: UIApplication) {
@@ -54,7 +52,6 @@ struct Flow_1App: App {
         AppLogger.shared.info("Application Launched")
     }
     
-    @State private var hasRequestedATT = false
     
     var body: some Scene {
         WindowGroup {
@@ -63,18 +60,6 @@ struct Flow_1App: App {
                     ContentView()
                 } else {
                     OnboardingView()
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-                if !hasRequestedATT {
-                    hasRequestedATT = true
-                    // 延遲一點點時間等待畫面完全渲染，再跳出追蹤授權提示
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                        ATTrackingManager.requestTrackingAuthorization { status in
-                            // 無論用戶同意或拒絕，我們都在確認後才初始化廣告 SDK
-                            MobileAds.shared.start(completionHandler: nil)
-                        }
-                    }
                 }
             }
         }
