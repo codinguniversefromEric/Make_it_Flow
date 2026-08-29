@@ -29,7 +29,7 @@ class AppSettings: ObservableObject {
     
     // MARK: - Published Properties
     
-    /// 選擇的視覺模型 (預設 yolo26s / Small)
+    /// 選擇的視覺模型 (預設 yolo26m / Medium)
     @Published var selectedModel: VisionModelType {
         didSet {
             UserDefaults.standard.set(selectedModel.rawValue, forKey: Keys.selectedModel)
@@ -43,8 +43,9 @@ class AppSettings: ObservableObject {
     }
     
     private init() {
-        let savedModelRaw = UserDefaults.standard.string(forKey: Keys.selectedModel) ?? VisionModelType.yoloStandard.rawValue
-        self.selectedModel = VisionModelType(rawValue: savedModelRaw) ?? .yoloStandard
+        // 設定為 Medium (yoloMedium) 作為最高畫質/準確度的預設值
+        let savedModelRaw = UserDefaults.standard.string(forKey: Keys.selectedModel) ?? VisionModelType.yoloMedium.rawValue
+        self.selectedModel = VisionModelType(rawValue: savedModelRaw) ?? .yoloMedium
         
         if Self.showDeveloperSettings {
             self.debugMode = UserDefaults.standard.object(forKey: Keys.debugMode) as? Bool ?? false
