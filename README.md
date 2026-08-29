@@ -21,6 +21,24 @@ cd Flow_CLI
 swift run Flow_CLI /path/to/input.pdf /path/to/output.epub
 ```
 
+```mermaid
+flowchart LR
+    A([終端機指令]) --> B{參數解析 (Args)}
+    B -->|input.pdf| C(載入 PDFKit)
+    B -->|模型選擇| D(載入 CoreML 權重)
+    
+    C --> E[Batch Processor]
+    D -.->|nano / small / medium| E
+    
+    E --> F((Make it Flow 核心引擎))
+    F --> G[產生 EPUB / TOC]
+    G --> H([儲存至 output.epub])
+    
+    style A fill:#f96,stroke:#333,stroke-width:2px
+    style H fill:#9f6,stroke:#333,stroke-width:2px
+    style F fill:#69f,stroke:#333,stroke-width:2px,color:#fff
+```
+
 ## 🧠 架構總覽 (Architecture)
 
 ```mermaid
