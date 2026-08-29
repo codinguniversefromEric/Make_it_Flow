@@ -19,7 +19,7 @@ struct SettingsView: View {
             List {
 
                 // MARK: - 開發者與視覺模型 (合併)
-                if AppSettings.showDeveloperSettings {
+                #if DEBUG
                     Section {
                         // Vision 部分
                         Picker(selection: $settings.selectedModel) {
@@ -40,6 +40,8 @@ struct SettingsView: View {
                         .accessibilityHint("Toggle visual diagnostic overlays showing YOLO bounding boxes")
                         
                 }
+                
+                #endif
                 
                 // MARK: - 關於
                 Section {
