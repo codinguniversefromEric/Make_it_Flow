@@ -5,12 +5,20 @@ import PDFKit
 func main() async {
     let args = CommandLine.arguments
     guard args.count >= 3 else {
-        print("Usage: Flow_CLI <input.pdf> <output.epub>")
+        print("Usage: Flow_CLI <input.pdf> <output.epub> [nano|small|medium]")
         exit(1)
     }
     
     let inputPath = args[1]
     let outputPath = args[2]
+    
+    var selectedModel: VisionModelType = .yoloStandard
+    if args.count >= 4 {
+        let modelArg = args[3].lowercased()
+        if modelArg == "nano" { selectedModel = .yoloFast }
+        else if modelArg == "small" { selectedModel = .yoloStandard }
+        else if modelArg == "medium" { selectedModel = .yoloMedium }
+    }
     
     let inputURL = URL(fileURLWithPath: inputPath)
     guard let document = PDFDocument(url: inputURL) else {
@@ -18,15 +26,17 @@ func main() async {
         exit(1)
     }
     
-    // Initialize required managers
-    AppLogger.shared.info("Starting Flow_CLI processing for \(inputURL.lastPathComponent)")
-    AppSettings.shared.selectedModel = .yoloStandard
+    AppLogger.shared.info("Starting Flow_CLI processing for \(inputURL.lastPathComponent) using \(selectedModel.rawValue)")
+    AppSettings.shared.selectedModel = selectedModel
     let processor = BatchProcessor()
     
+    let startTime = Date()
     await processor.exportDocument(document, fileName: inputURL.deletingPathExtension().lastPathComponent)
+    let timeElapsed = Date().timeIntervalSince(startTime)
+    let pages = document.pageCount
+    print(String(format: "⏱ Processing time: %.2f seconds (%.2f s/page)", timeElapsed, timeElapsed / Double(pages)))
     
     if let resultURL = processor.exportedFileURL {
-        print("✅ Finished processing. Final file saved at \(resultURL.path)")
         do {
             if FileManager.default.fileExists(atPath: outputPath) {
                 try FileManager.default.removeItem(atPath: outputPath)

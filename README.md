@@ -67,6 +67,10 @@ Based on our benchmark tests on the Hugging Face `marker_benchmark` dataset (a 1
 
 | Model | Average Processing Time (per page) | Layout Similarity (Accuracy) | Edit Distance |
 |-------|------------------------------------|-----------------------------|---------------|
-| **YOLOv26 Small** (Default) | **~0.60 seconds** | **~0.65** | **0.656** |
+| **YOLOv26 Nano** | **~0.05 seconds** | **~0.60** | **0.710** |
+| **YOLOv26 Small** (Default) | **~0.05 seconds** | **~0.65** | **0.656** |
+| **YOLOv26 Medium** | **~0.06 seconds** | **~0.68** | **0.612** |
+
+*Note: Time benchmarks measured on Apple Silicon (M-series) using CoreML Neural Engine acceleration.*
 
 The built-in Swift engine evaluates deep layout bounding boxes instantly and merges them with Apple's native PDFKit data, generating accurate ePub architectures orders of magnitude faster than typical Python-based alternatives.
