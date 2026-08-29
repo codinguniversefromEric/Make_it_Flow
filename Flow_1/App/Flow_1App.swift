@@ -44,7 +44,6 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 @main
 struct Flow_1App: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
     
     init() {
         // 🚀 Initialize the AppLogger and setup crash handler
@@ -55,13 +54,7 @@ struct Flow_1App: App {
     
     var body: some Scene {
         WindowGroup {
-            Group {
-                if hasSeenOnboarding {
-                    ContentView()
-                } else {
-                    OnboardingView()
-                }
-            }
+            ContentView()
         }
     }
 }
