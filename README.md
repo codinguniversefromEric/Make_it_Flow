@@ -24,19 +24,15 @@ swift run Flow_CLI /path/to/input.pdf /path/to/output.epub [nano|small|medium]
 ```mermaid
 flowchart LR
     A([Terminal Command]) --> B{"Args Parser"}
-    B -->|input.pdf| C("Load PDFKit")
-    B -->|Model Selection| D("Load CoreML Weights")
+    B -->|input.pdf| C["Load PDFKit"]
+    B -->|Model Selection| D["Load CoreML Weights"]
     
     C --> E["Batch Processor"]
     D -.->|nano / small / medium| E
     
-    E --> F(("Make it Flow Core Engine"))
+    E --> F["Make it Flow Core Engine"]
     F --> G["Generate EPUB / TOC"]
-    G --> H([Save to output.epub])
-    
-    style A fill:#f96,stroke:#333,stroke-width:2px
-    style H fill:#9f6,stroke:#333,stroke-width:2px
-    style F fill:#69f,stroke:#333,stroke-width:2px,color:#fff
+    G --> H[/"Save to output.epub"/]
 ```
 
 ## 🧠 Architecture Overview
@@ -45,22 +41,17 @@ The system pipeline is designed for high-performance extraction of academic pape
 
 ```mermaid
 flowchart TD
-    A([Input PDF]) --> B{"PDFKit & VisionEngine"}
+    A[/"Input PDF"/] --> B["PDFKit & VisionEngine"]
     
-    B -->|Rasterized Images| C("CoreML YOLOv8")
-    B -->|Native Rich Text| D("Hybrid Corrector")
+    B -->|Rasterized Images| C["CoreML YOLOv8"]
+    B -->|Native Rich Text| D["Hybrid Corrector"]
     
     C -->|14-Class Bounding Boxes| D
     
-    D --> E("Layout Sorting & Stitching")
-    E --> F(("EPUB Synthesizer"))
+    D --> E["Layout Sorting & Stitching"]
+    E --> F["EPUB Synthesizer"]
     
-    F --> G([Publisher-Grade EPUB])
-
-    style A fill:#f96,stroke:#333,stroke-width:2px
-    style G fill:#9f6,stroke:#333,stroke-width:2px
-    style C fill:#f9f,stroke:#333,stroke-width:2px
-    style F fill:#69f,stroke:#333,stroke-width:2px,color:#fff
+    F --> G[("Publisher-Grade EPUB")]
 ```
 
 1. **VisionEngine**: Executes YOLO to classify 14 types of layout regions (Title, Body, Table, Picture, Formula, etc.).
