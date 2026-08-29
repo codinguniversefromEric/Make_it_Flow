@@ -33,3 +33,8 @@ trigger: always_on
 ## 5. EPUB 檔案合規性 (Stored-ZIP)
 - Apple Books 對 EPUB 格式極度嚴格。必須確保 `mimetype` 是 ZIP 壓縮檔的**第一個檔案**，而且絕對**不可被壓縮 (Stored-Mode)**，且不能包含 Extra Field。
 - 請勿隨意更換 `EPUBSynthesizer` 底層的 `StoredZIPArchive` 實作。
+
+## 6. CLI 批次處理管線 (CLI Pipeline)
+- **獨立的 Target**：CLI 是一個獨立的 Swift Executable Target (`Flow_CLI`)，與 iOS App 共用相同的核心引擎 (如 `BatchProcessor`, `VisionEngine`)。
+- **參數與資源綁定**：CLI 模式下，必須正確解析引數 `[nano|small|medium]`，並且 CoreML 模型權重已經透過 `Package.swift` 與實體資料夾複製 (`Models/`) 完整封裝進 CLI，確保 100% 離線可用。
+- **無縫產出 EPUB**：CLI 的輸出應與 iOS App 一致，直接調用 `BatchProcessor` 並將最終的 `exportedFileURL` (EPUB) 搬移至使用者指定的 `output.epub` 路徑。
