@@ -18,11 +18,8 @@
 適合批次處理或自動化腳本。
 ```bash
 cd Flow_CLI
-swift run Flow_CLI /path/to/input.pdf /path/to/output.md
+swift run Flow_CLI /path/to/input.pdf /path/to/output.epub
 ```
-
-### 跑單元測試
-在 Xcode 打開專案後，按下 **`Cmd + U`** 即可執行 `Flow_1Tests` 模組的演算法測試。
 
 ## 🧠 架構總覽 (Architecture)
 
@@ -33,7 +30,7 @@ flowchart TD
     B -->|原生富文本| D(Hybrid Corrector)
     C -->|Bounding Boxes| D
     D --> E(Layout Sorting)
-    E --> F(EPUB Synthesizer / Markdown)
+    E --> F(EPUB Synthesizer)
 ```
 
 1. **VisionEngine**: 使用 YOLO 辨識 14 類版面標籤 (Title, Body, Table, Picture 等)。
