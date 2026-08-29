@@ -1,4 +1,4 @@
-# Make it Flow 🌊
+# Make it Flow 
 
 **Make it Flow** is a 100% on-device iOS App & CLI tool that converts PDF documents into beautifully formatted, highly readable EPUB files. Powered by CoreML YOLO models and PDFKit, it intelligently reconstructs complex document architectures entirely offline.
 
