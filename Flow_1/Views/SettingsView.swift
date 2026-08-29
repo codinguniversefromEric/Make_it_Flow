@@ -39,14 +39,6 @@ struct SettingsView: View {
                         .accessibilityLabel("Developer Diagnostics")
                         .accessibilityHint("Toggle visual diagnostic overlays showing YOLO bounding boxes")
                         
-                        NavigationLink(destination: LogViewerView()) {
-                            Label("View App Logs", systemImage: "scroll")
-                        }
-                    } header: {
-                        Text("DEVELOPER & VISION")
-                    } footer: {
-                        Text("Select Auto to dynamically choose the best engine based on device memory. Developer diagnostics enable visual overlays rendering YOLO bounding boxes directly on the document.")
-                    }
                 }
                 
                 // MARK: - 關於
