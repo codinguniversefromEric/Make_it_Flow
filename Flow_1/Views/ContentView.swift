@@ -133,6 +133,12 @@ struct ContentView: View {
             } message: {
                 Text(vm.errorMessage)
             }
+            .onOpenURL { url in
+                // Hook Model: External Trigger - Receive shared PDF from Safari/Files
+                if url.pathExtension.lowercased() == "pdf" {
+                    vm.handlePickedPDF(url: url)
+                }
+            }
         }
     }
 }
@@ -468,12 +474,7 @@ extension ContentView {
                     }
                 }
             }
-            .onOpenURL { url in
-                // Hook Model: External Trigger - Receive shared PDF from Safari/Files
-                if url.pathExtension.lowercased() == "pdf" {
-                    vm.handlePickedPDF(url: url)
-                }
-            }
+
             .onAppear {
                 animatedProgress = progress
             }
