@@ -15,9 +15,7 @@ let package = Package(
             name: "Flow_CLI",
             dependencies: [],
             resources: [
-                .copy("../../Flow_1/Models/yolo26s-doclaynet.mlpackage"),
-                .copy("../../Flow_1/Models/yolo26n-doclaynet.mlpackage"),
-                .copy("../../Flow_1/Models/yolo26m-doclaynet.mlpackage")
+                .copy("Models")
             ],
             swiftSettings: [
                 .define("CLI_MODE")

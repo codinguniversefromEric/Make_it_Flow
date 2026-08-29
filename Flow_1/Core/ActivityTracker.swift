@@ -70,7 +70,8 @@ import ActivityKit
     }
 }
 #else
-@MainActor final class ActivityTracker {
+final class ActivityTracker {
+    init() {}
     func start(documentName: String) {}
     func update(progress: Double, message: String) async {}
     func end(progress: Double, message: String) async {}

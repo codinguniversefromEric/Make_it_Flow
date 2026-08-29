@@ -1,1 +1,1 @@
-../Flow_1/App/AppSettings.swift
+../../../Flow_1/App/AppSettings.swift

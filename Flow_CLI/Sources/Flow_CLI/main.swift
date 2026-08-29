@@ -5,7 +5,7 @@ import PDFKit
 func main() async {
     let args = CommandLine.arguments
     guard args.count >= 3 else {
-        print("Usage: Flow_CLI <input.pdf> <output.md>")
+        print("Usage: Flow_CLI <input.pdf> <output.epub>")
         exit(1)
     }
     
@@ -25,30 +25,16 @@ func main() async {
     
     await processor.exportDocument(document, fileName: inputURL.deletingPathExtension().lastPathComponent)
     
-    // Wait for processing to finish if exportDocument is somehow not blocking
-    // exportDocument is marked as async and we await it, so it blocks until done.
-    
     if let resultURL = processor.exportedFileURL {
-        print("✅ Finished processing. Final EPUB/MD saved at \(resultURL.path)")
-        // Now let's copy the MD file to outputPath
-        let tmpDir = FileManager.default.temporaryDirectory.appendingPathComponent("LibriAI_Export")
-        let fileName = inputURL.deletingPathExtension().lastPathComponent
-        let safeFileName = fileName.replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: ":", with: "_").prefix(80)
-        let mdURL = tmpDir.appendingPathComponent("\(safeFileName).md")
-        
-        if FileManager.default.fileExists(atPath: mdURL.path) {
-            do {
-                if FileManager.default.fileExists(atPath: outputPath) {
-                    try FileManager.default.removeItem(atPath: outputPath)
-                }
-                try FileManager.default.copyItem(at: mdURL, to: URL(fileURLWithPath: outputPath))
-                print("✅ Markdown copied to \(outputPath)")
-            } catch {
-                print("❌ Failed to copy markdown to output path: \(error)")
-                exit(1)
+        print("✅ Finished processing. Final file saved at \(resultURL.path)")
+        do {
+            if FileManager.default.fileExists(atPath: outputPath) {
+                try FileManager.default.removeItem(atPath: outputPath)
             }
-        } else {
-            print("❌ Error: MD file not found at \(mdURL.path)")
+            try FileManager.default.copyItem(at: resultURL, to: URL(fileURLWithPath: outputPath))
+            print("✅ File successfully copied to \(outputPath)")
+        } catch {
+            print("❌ Failed to copy to output path: \(error)")
             exit(1)
         }
     } else {

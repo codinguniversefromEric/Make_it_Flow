@@ -423,7 +423,6 @@ class BatchProcessor: ObservableObject {
                 try fullHTML.write(to: mdURL, atomically: true, encoding: .utf8)
                 
                 let finalEPUB: URL?
-#if !CLI_MODE
                 // 🧠 智慧路由：根據頁數決定合成通道
                 if document.pageCount > 50 {
                     AppLogger.shared.info("📚 偵測到長篇文件 (\(document.pageCount) 頁)，啟動書籍引擎...")
@@ -432,9 +431,6 @@ class BatchProcessor: ObservableObject {
                     AppLogger.shared.info("📄 短篇論文模式 (\(document.pageCount) 頁)，啟動標準單頁引擎...")
                     finalEPUB = EPUBSynthesizer.createEPUB(title: bookTitle, html: fullHTML, assetsURL: assetsDir)
                 }
-#else
-                finalEPUB = mdURL
-#endif
                 
                 if let epubFile = finalEPUB {
                     AppLogger.shared.info("✅ 成功匯出 EPUB: \(epubFile.lastPathComponent)")
