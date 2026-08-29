@@ -24,23 +24,17 @@ class AppSettings: ObservableObject {
     /// UserDefaults 所使用的 Keys
     private enum Keys {
         static let selectedModel = "selectedVisionModel"
-        static let useAI = "useAIRefinement"
         static let debugMode = "debugModeEnabled"
     }
     
     // MARK: - Published Properties
     
-    /// 選擇的視覺模型 (預設 Auto)
+    /// 選擇的視覺模型 (預設 yolo26s / Small)
     @Published var selectedModel: VisionModelType {
         didSet {
             UserDefaults.standard.set(selectedModel.rawValue, forKey: Keys.selectedModel)
             LayoutVisionManager.shared.setupEngine()
         }
-    }
-    
-    /// 是否啟用 AI 語意修復
-    @Published var useAI: Bool {
-        didSet { UserDefaults.standard.set(useAI, forKey: Keys.useAI) }
     }
     
     /// 是否啟用 Debug 模式 (顯示 YOLO 框 + 語意標記)
@@ -51,8 +45,6 @@ class AppSettings: ObservableObject {
     private init() {
         let savedModelRaw = UserDefaults.standard.string(forKey: Keys.selectedModel) ?? VisionModelType.yoloStandard.rawValue
         self.selectedModel = VisionModelType(rawValue: savedModelRaw) ?? .yoloStandard
-        
-        self.useAI = UserDefaults.standard.object(forKey: Keys.useAI) as? Bool ?? true
         
         if Self.showDeveloperSettings {
             self.debugMode = UserDefaults.standard.object(forKey: Keys.debugMode) as? Bool ?? false
