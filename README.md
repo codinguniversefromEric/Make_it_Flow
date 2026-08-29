@@ -23,7 +23,7 @@ swift run Flow_CLI /path/to/input.pdf /path/to/output.epub
 
 ```mermaid
 flowchart LR
-    A([終端機指令]) --> B{參數解析 (Args)}
+    A([終端機指令]) --> B{"參數解析 (Args)"}
     B -->|input.pdf| C(載入 PDFKit)
     B -->|模型選擇| D(載入 CoreML 權重)
     
