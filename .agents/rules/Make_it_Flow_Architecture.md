@@ -1,0 +1,35 @@
+---
+name: make-it-flow-architecture
+description: 確保 Make_it_Flow 的排版引擎、EPUB 打包與視覺區塊處理的架構完整性與設計準則
+trigger: always_on
+---
+
+# Make it Flow Architecture & Guidelines
+
+這份規則記錄了我們為了讓 `Make_it_Flow` 達到「Publisher-Grade Output (出版社級別的電子書)」所確立的核心架構與設計決策。
+任何對 PDF 解析、排版引擎、或是 EPUB 打包的修改，都必須遵守以下準則：
+
+## 1. 視覺區塊 (Visual Regions) 的生命週期與排序
+- **嚴禁在最後階段切割與附加圖片**：所有的視覺區塊 (`.picture`, `.table`, `.formula`, `.figure`) 必須在 `BatchProcessor.swift` 的 STAGE 2.6 被轉換為 `TextFragment`（`fontName` 設為 `nil`）。
+- **交由引擎排序**：將圖片轉為 `TextFragment` 後，必須讓 `LayoutEngine` 透過原生幾何演算法統一進行 Y 軸排序，確保圖片、表格能正確穿插在文字段落之間，而不是全部擠在頁首。
+
+## 2. 跨頁段落的無縫縫合 (Cross-Page Stitching)
+- 處理跨頁的句子斷裂，**不要**在區塊 (Block) 層級維護狀態機，這太複雜且容易出錯。
+- **統一交給字串替換**：在 `BatchProcessor.swift` 結束所有頁面處理後，呼叫 `LayoutEngine.stitchCrossPageParagraphs(html: fullHTML)`。
+- **啟發式法則**：利用正則表達式，若前一頁最後一個字元不是終結標點符號 (`. ! ? 。 ！ ？ ： ； " '`)，且下一頁第一個字元是字母或中文，則移除換頁所產生的 `</p> <p class="doc-body">` 進行無縫合併。
+
+## 3. EPUB 樣式與排版美學 (Apple Books Native Style)
+- **CSS 準則**：在 `EPUBSynthesizer` 內產生的 XHTML 必須使用無襯線字體 (`font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;`)，並且實作響應式的 `@media (prefers-color-scheme: dark)`。
+- **字體大小適應性 (Relative Sizing)**：
+  - 絕對禁止在 HTML `style` 寫死絕對字體大小 (例如 `font-size: 14px;`)，因為這會破壞電子書閱讀器讓讀者自行調整字體的權利。
+  - 必須將 `TextFragment.fontSize` 除以 PDF 的基礎字體大小 (`baseFontSize`) 轉換為相對單位 (例如 `font-size: 1.25em;`)。
+- **原始字體名稱還原**：
+  - `TextFragment` 應盡量保存從 PDFKit 抽取的 `fontName`。
+  - 在 `LayoutEngine.toHTML` 中，若 `fontName` 存在且非系統字體 (不含 `System` 或 `UI`)，則以 `font-family: 'OriginalName', sans-serif;` 寫入，讓有支援的閱讀器 (如 Apple Books 的 Publisher Font 模式) 能夠完美還原原始字體。
+
+## 4. 多層級精準目錄 (TOC Generation)
+- **依賴 HTML 標籤而非外部陣列**：不要手動維護目錄陣列。只要確保 `.title` 被輸出為 `<h1>`，`.heading` 被輸出為 `<h2>`，`EPUBSynthesizer.injectHeadingIDs` 就會自動掃描整份 HTML，自動注入 `id` 並生成合規的 `toc.ncx` 與 `nav.xhtml` 多層級大綱。
+
+## 5. EPUB 檔案合規性 (Stored-ZIP)
+- Apple Books 對 EPUB 格式極度嚴格。必須確保 `mimetype` 是 ZIP 壓縮檔的**第一個檔案**，而且絕對**不可被壓縮 (Stored-Mode)**，且不能包含 Extra Field。
+- 請勿隨意更換 `EPUBSynthesizer` 底層的 `StoredZIPArchive` 實作。

@@ -12,35 +12,12 @@ import SwiftUI
 // 應用程式設定畫面
 struct SettingsView: View {
     @ObservedObject var settings = AppSettings.shared
-    @ObservedObject var llmEngine = LLMEngine.shared
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
         NavigationView {
             List {
 
-                // MARK: - AI 引擎
-                if llmEngine.isAIAvailable {
-                    Section {
-//                        HStack {
-//                            Label("Engine", systemImage: "doc.text.fill.viewfinder")
-//                            Spacer()
-//                            Text(llmEngine.statusMessage)
-//                                .font(.caption)
-//                                .foregroundStyle(.secondary)
-//                        }
-                        
-                        Toggle(isOn: $settings.useAI) {
-                            Label("AI Enhance", systemImage: "apple.intelligence")
-                        }
-                        .accessibilityLabel("AI Enhancement")
-                    } header: {
-                        Text("APPLE INTELLIGENCE")
-                    } footer: {
-                        Text("When enabled, AI refines content.")
-                    }
-                }
-                
                 // MARK: - 開發者與視覺模型 (合併)
                 if AppSettings.showDeveloperSettings {
                     Section {
@@ -77,7 +54,7 @@ struct SettingsView: View {
                     HStack {
                         Label("Version", systemImage: "info.circle")
                         Spacer()
-                        Text("1.0.0")
+                        Text("3.0.0")
                             .foregroundStyle(.secondary)
                     }
                     
@@ -89,17 +66,6 @@ struct SettingsView: View {
                             Image(systemName: "arrow.up.right")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                        }
-                    }
-                    
-                    Link(destination: URL(string: "https://github.com/codinguniversefromEric/Make_it_Flow.git")!) {
-                        HStack {
-                            Label("Donate (GitHub)", systemImage: "heart.fill")
-                                .foregroundColor(.pink)
-                            Spacer()
-                            Image(systemName: "arrow.up.right")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
                         }
                     }
                 } header: {

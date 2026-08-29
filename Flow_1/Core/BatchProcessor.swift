@@ -84,8 +84,7 @@ class BatchProcessor: ObservableObject {
         self.currentTask = Task.detached(priority: .userInitiated) {
             // 📖 These mutable variables are fully owned by the detached task to avoid data races
             var detectedTitle = initialTitle
-            var fullMarkdown = ""
-            var pendingContinuation: String? = nil
+            var fullHTML = ""
             
             // 🌐 全域文件樣式分析
             AppLogger.shared.info("開始進行全域樣式分析...")
@@ -220,13 +219,25 @@ class BatchProcessor: ObservableObject {
                         
                         // 📝 嘗試從 attributedString 擷取字體資訊
                         var fontSize: CGFloat = 12.0
+                        var fontName: String? = nil
                         var isBold = false
+                        var isItalic = false
+                        var colorHex = "#000000"
                         
                         if let attrStr = line.attributedString {
-                            attrStr.enumerateAttribute(.font, in: NSRange(location: 0, length: attrStr.length)) { value, _, _ in
-                                if let font = value as? AppFont {
+                            attrStr.enumerateAttributes(in: NSRange(location: 0, length: attrStr.length)) { attrs, _, _ in
+                                if let font = attrs[.font] as? AppFont {
                                     fontSize = font.pointSize
+                                    fontName = font.fontName
                                     isBold = font.isAppFontBold
+                                    #if os(iOS)
+                                    isItalic = font.fontDescriptor.symbolicTraits.contains(.traitItalic)
+                                    #elseif os(macOS)
+                                    isItalic = font.fontDescriptor.symbolicTraits.contains(.italic)
+                                    #endif
+                                }
+                                if let color = attrs[.foregroundColor] as? AppColor {
+                                    colorHex = color.hexString
                                 }
                             }
                         }
@@ -235,7 +246,10 @@ class BatchProcessor: ObservableObject {
                             text: lineText,
                             bounds: displayRect,
                             fontSize: fontSize * scale,
-                            isBold: isBold
+                            fontName: fontName,
+                            isBold: isBold,
+                            isItalic: isItalic,
+                            colorHex: colorHex
                         )
                         
                         // 🔍 排除落在視覺區域 (圖片/表格/公式) 內的文字行，但保留表格內的碎片用於結構重建
@@ -265,97 +279,30 @@ class BatchProcessor: ObservableObject {
                     }
                 }
                 
-                // ═══════════════════════════════════════════
-                // STAGE 2.5: Vision OCR Fallback
-                // ═══════════════════════════════════════════
-                
-                let needsFullPageOCR = textFragments.count < 5
-                
-                if needsFullPageOCR {
-                    AppLogger.shared.info("⚠️ 偵測到掃描版 PDF (第 \(pageIndex + 1) 頁文字碎片極少)，啟動全頁 OCR Fallback...")
-                    let ocrFragments = await BatchProcessor.performOCR(on: validCGImg, scale: scale, pageBounds: pageBounds)
-                    
-                    for fragment in ocrFragments {
-                        var handledByVisualRegion = false
-                        let lineArea = fragment.bounds.width * fragment.bounds.height
-                        
-                        for (index, region) in visualRegions.enumerated() {
-                            let intersection = region.rect.intersection(fragment.bounds)
-                            if !intersection.isNull {
-                                let intersectionArea = intersection.width * intersection.height
-                                let expandedRegion = region.rect.insetBy(dx: -5, dy: -5)
-                                let lineMid = CGPoint(x: fragment.bounds.midX, y: fragment.bounds.midY)
-                                
-                                if (lineArea > 0 && intersectionArea / lineArea > 0.4) || expandedRegion.contains(lineMid) {
-                                    if region.label == "Table" {
-                                        tableFragments[index, default: []].append(fragment)
-                                    }
-                                    handledByVisualRegion = true
-                                    break
-                                }
-                            }
-                        }
-                        if !handledByVisualRegion {
-                            textFragments.append(fragment)
-                        }
-                    }
-                } else {
-                    for (index, region) in visualRegions.enumerated() {
-                        if region.label == "Table", (tableFragments[index]?.count ?? 0) < 4 {
-                            AppLogger.shared.info("⚠️ 偵測到圖片型表格 (缺少文字碎片)，啟動區域 OCR Fallback...")
-                            let normalizedRect = CGRect(
-                                x: max(0, region.rect.minX / scaledSize.width),
-                                y: max(0, 1.0 - (region.rect.maxY / scaledSize.height)),
-                                width: min(1.0, region.rect.width / scaledSize.width),
-                                height: min(1.0, region.rect.height / scaledSize.height)
-                            )
-                            
-                            let ocrFragments = await BatchProcessor.performOCR(on: validCGImg, scale: scale, pageBounds: pageBounds, regionOfInterest: normalizedRect)
-                            tableFragments[index, default: []].append(contentsOf: ocrFragments)
-                        }
-                    }
-                }
+                // OCR Fallback and extra logics removed for YOLO 99% accuracy transition
                 
                 // ═══════════════════════════════════════════
                 // STAGE 2.6: 視覺區塊實體擷取 (Formula, Picture, Figure)
                 // ═══════════════════════════════════════════
                 
                 for (index, region) in visualRegions.enumerated() {
-                    if region.label == "Formula" || region.label == "Picture" || region.label == "Figure" {
+                    if region.label == "Formula" || region.label == "Picture" || region.label == "Figure" || region.label == "Table" {
                         AppLogger.shared.info("🖼️ 擷取視覺區塊 (\(region.label))...")
-                        let normalizedRect = CGRect(
-                            x: max(0, region.rect.minX / scaledSize.width),
-                            y: max(0, 1.0 - (region.rect.maxY / scaledSize.height)),
-                            width: min(1.0, region.rect.width / scaledSize.width),
-                            height: min(1.0, region.rect.height / scaledSize.height)
-                        )
+                        let fileName = "\(region.label.lowercased())_p\(pageIndex + 1)_\(index)"
                         
-                        let cropRect = CGRect(
-                            x: CGFloat(validCGImg.width) * normalizedRect.minX,
-                            y: CGFloat(validCGImg.height) * normalizedRect.minY,
-                            width: CGFloat(validCGImg.width) * normalizedRect.width,
-                            height: CGFloat(validCGImg.height) * normalizedRect.height
-                        )
-                        
-                        if let croppedImg = validCGImg.cropping(to: cropRect) {
-                            let fileName = "\(region.label.lowercased())_p\(pageIndex + 1)_\(index).png"
-                            let fileURL = assetsDir.appendingPathComponent(fileName)
-                            
-                            // 跨平台儲存 CGImage 為 PNG
-                            if let destination = CGImageDestinationCreateWithURL(fileURL as CFURL, "public.png" as CFString, 1, nil) {
-                                CGImageDestinationAddImage(destination, croppedImg, nil)
-                                CGImageDestinationFinalize(destination)
-                            }
-                            
-                            // 插入 Markdown 圖片連結，讓 LayoutEngine 安排順序
-                            let mdLink = "![\(region.label)](assets/\(fileName))"
-                            let mdText = region.label == "Formula" ? "$$\n\(mdLink)\n$$" : mdLink
+                        if let _ = PDFImageExtractor.cropAndSaveImage(from: validRawImage, cropRect: region.rect, imageName: fileName, assetsURL: assetsDir) {
+                            let prefix = region.label == "Table" ? "表格" : "圖表/圖片"
+                            let imgHTML = "<img src=\"assets/\(fileName).jpg\" alt=\"\(prefix)：\(fileName)\" />"
+                            let mdText = region.label == "Formula" ? "<div class=\"doc-formula\">\(imgHTML)</div>" : imgHTML
                             
                             let fragment = TextFragment(
                                 text: mdText,
                                 bounds: region.rect,
                                 fontSize: 12.0 * scale,
-                                isBold: false
+                                fontName: nil,
+                                isBold: false,
+                                isItalic: false,
+                                colorHex: "#000000"
                             )
                             textFragments.append(fragment)
                         }
@@ -376,11 +323,7 @@ class BatchProcessor: ObservableObject {
                     pageHeight: scaledSize.height
                 )
                 
-                // ═══════════════════════════════════════════
-                // STAGE 4: 語意分類 → 頁眉/頁腳/頁碼自動丟棄
-                // ═══════════════════════════════════════════
-                
-                SemanticClassifier.classify(blocks: &paragraphs, pageHeight: scaledSize.height, styleRegistry: styleRegistry)
+                // Semantic classification is now handled directly via LayoutEngine mapping from D4LA labels
                 
                 
                 // 📊 日誌輸出
@@ -390,54 +333,7 @@ class BatchProcessor: ObservableObject {
                     .joined(separator: ", ")
                 print("🏠 第 \(pageIndex + 1) 頁 分類: \(paragraphs.count) 段落 [​\(roleBreakdown)]")
                 
-                // ═══════════════════════════════════════════
-                // STAGE 5: 跨頁續接與分段修剪
-                // ═══════════════════════════════════════════
-                
-                // 1. 處理上一頁遺留的未完成段落
-                if let continuation = pendingContinuation {
-                    if let firstValidIdx = paragraphs.firstIndex(where: { !SemanticClassifier.shouldDrop($0.role) }) {
-                        if paragraphs[firstValidIdx].role == .body {
-                            let nextText = paragraphs[firstValidIdx].unifiedText
-                            var mergedText = ""
-                            
-                            if continuation.hasSuffix("-") {
-                                let cleanContinuation = String(continuation.dropLast())
-                                if let firstChar = nextText.first, firstChar.isLowercase {
-                                    mergedText = cleanContinuation + nextText
-                                } else {
-                                    mergedText = cleanContinuation + " " + nextText
-                                }
-                            } else {
-                                mergedText = continuation + " " + nextText
-                            }
-                            paragraphs[firstValidIdx].unifiedText = mergedText
-                            pendingContinuation = nil
-                        } else {
-                            // 第一個段落是標題等，將前一頁的結尾獨立為新段落
-                            let contBlock = ParagraphBlock(fragments: [], role: .body, unifiedText: continuation, bounds: .zero)
-                            paragraphs.insert(contBlock, at: firstValidIdx)
-                            pendingContinuation = nil
-                        }
-                    } else {
-                        // 這一頁沒有有效段落，暫且保留 continuation (或直接丟棄)
-                    }
-                }
-                
-                // 2. 擷取這一頁最後一個可能未完成的段落
-                if let lastValidIdx = paragraphs.lastIndex(where: { !SemanticClassifier.shouldDrop($0.role) }),
-                   paragraphs[lastValidIdx].role == .body {
-                    let trimmed = paragraphs[lastValidIdx].unifiedText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    let endsWithTerminator = trimmed.hasSuffix(".") || trimmed.hasSuffix("。") ||
-                    trimmed.hasSuffix("!") || trimmed.hasSuffix("！") ||
-                    trimmed.hasSuffix("?") || trimmed.hasSuffix("？") ||
-                    trimmed.hasSuffix(":") || trimmed.hasSuffix("：")
-                    // 防呆：如果是極短行，或是列表項，就不視為待續接
-                    if !endsWithTerminator && trimmed.count > 20 {
-                        pendingContinuation = trimmed
-                        paragraphs.remove(at: lastValidIdx)
-                    }
-                }
+                // Cross-page continuation removed: To be implemented in KMP Shared Module
                 
                 // ═══════════════════════════════════════════
                 // STAGE 6: 組裝 Markdown 與智慧分章
@@ -446,30 +342,9 @@ class BatchProcessor: ObservableObject {
                 var pageMD = ""
                 var rawTextForLLM = ""
                 
-                // 視覺區域 → 圖片裁切 (按 Y 位置排序)
-                let sortedVisuals = zip(visualRegions.indices, visualRegions).sorted { $0.1.rect.minY < $1.1.rect.minY }
-                for (indexInPage, (originalIndex, region)) in sortedVisuals.enumerated() {
-                    let fileName = "page_\(pageIndex + 1)_item_\(indexInPage)"
-                    
-                    var tableReconstructed = false
-                    if region.label == "Table", let frags = tableFragments[originalIndex] {
-                        if let markdownTable = TableReconstructor.reconstruct(fragments: frags, tableBounds: region.rect) {
-                            pageMD += "\n" + markdownTable + "\n\n"
-                            tableReconstructed = true
-                        }
-                    }
-                    
-                    if !tableReconstructed {
-                        if let _ = PDFImageExtractor.cropAndSaveImage(from: validRawImage, cropRect: region.rect, imageName: fileName, assetsURL: assetsDir) {
-                            let prefix = region.label == "Table" ? "表格" : "圖表/圖片"
-                            pageMD += "\n![\(prefix)：\(fileName)](assets/\(fileName).jpg)\n\n"
-                        }
-                    }
-                }
-                
                 // 文字段落 → Markdown
                 for block in paragraphs {
-                    if SemanticClassifier.shouldDrop(block.role) { continue }
+                    if LayoutEngine.shouldDrop(block.role) { continue }
                     
                     // 📖 擷取文件標題
                     if block.role == .title {
@@ -482,31 +357,19 @@ class BatchProcessor: ObservableObject {
                         }
                     }
                     
-                    let md = SemanticClassifier.toMarkdown(block: block)
-                    if !md.isEmpty {
-                        rawTextForLLM += md
+                    let htmlStr = LayoutEngine.toHTML(block: block, baseFontSize: styleRegistry.bodyFontSize)
+                    if !htmlStr.isEmpty {
+                        rawTextForLLM += htmlStr
                     }
                 }
                 
                 if !rawTextForLLM.isEmpty {
-#if !CLI_MODE
-                    let shouldUseAI = await MainActor.run { AppSettings.shared.useAI }
-                    if shouldUseAI {
-                        print("🧠 第 \(pageIndex + 1) 頁 → AI 修復中... (\(rawTextForLLM.count) 字元)")
-                        let perfectMD = await LLMEngine.shared.refineMarkdown(rawText: rawTextForLLM)
-                        print("✅ 第 \(pageIndex + 1) 頁 AI 修復完成 (\(perfectMD.count) 字元)")
-                        pageMD += perfectMD + "\n\n"
-                    } else {
-                        pageMD += rawTextForLLM
-                    }
-#else
                     pageMD += rawTextForLLM
-#endif
                 }
                 
                 // 📖 智慧分章
                 if pageIndex > 0 {
-                    if let firstBlock = paragraphs.first(where: { !SemanticClassifier.shouldDrop($0.role) }),
+                    if let firstBlock = paragraphs.first(where: { !LayoutEngine.shouldDrop($0.role) }),
                        firstBlock.role == .title || firstBlock.role == .heading {
                         
                         let text = firstBlock.unifiedText.lowercased()
@@ -515,18 +378,18 @@ class BatchProcessor: ObservableObject {
                         
                         // 根據角色、正規表示式、或字體大小判定是否為章節起點
                         if firstBlock.role == .title || isChapterRegex || isH1 {
-                            fullMarkdown += "<CHAPTER_SPLIT>\n\n"
+                            fullHTML += "<!-- CHAPTER_SPLIT -->\n\n"
                         } else if firstBlock.bounds.minY < 100 * scale {
                             // 備用：位於頁面最頂端的 heading 也可能是一個章節
-                            fullMarkdown += "<CHAPTER_SPLIT>\n\n"
+                            fullHTML += "<!-- CHAPTER_SPLIT -->\n\n"
                         }
                     } else if pageIndex % 15 == 0 {
                         // 備用防呆
-                        fullMarkdown += "<CHAPTER_SPLIT>\n\n"
+                        fullHTML += "<!-- CHAPTER_SPLIT -->\n\n"
                     }
                 }
                 
-                fullMarkdown += pageMD + "---\n\n"
+                fullHTML += pageMD + "\n\n"
                 
                 // 🧹 即時釋放記憶體
                 rawImage = nil
@@ -539,30 +402,35 @@ class BatchProcessor: ObservableObject {
             }
             
             // 🚀 完成所有頁面後，進行智慧路由打包
+            
+            // 執行跨頁段落無縫續接 (縫合被換頁切斷的句子)
+            AppLogger.shared.info("開始執行跨頁段落縫合...")
+            fullHTML = LayoutEngine.stitchCrossPageParagraphs(html: fullHTML)
+            
             // 📖 決定最終書名：PDF 元資料 → 第一個 .title 區塊 → 預設名稱
             let bookTitle = detectedTitle ?? "Libri-AI_轉譯報告"
             
-            // 在 Markdown 最前面插入書名標題 (只有一份，不會重複)
-            fullMarkdown = "# \(bookTitle)\n\n" + fullMarkdown
+            // 在 HTML 最前面插入書名標題 (只有一份，不會重複)
+            fullHTML = "<h1 class=\"doc-title\">\(bookTitle)</h1>\n\n" + fullHTML
             
             // 安全檔名：移除不安全字元
             let safeFileName = bookTitle.replacingOccurrences(of: "/", with: "_")
                 .replacingOccurrences(of: ":", with: "_")
                 .prefix(80)
-            let mdURL = exportDir.appendingPathComponent("\(safeFileName).md")
+            let mdURL = exportDir.appendingPathComponent("\(safeFileName).html")
             do {
-                // 儲存 Markdown 備份
-                try fullMarkdown.write(to: mdURL, atomically: true, encoding: .utf8)
+                // 儲存 HTML 備份
+                try fullHTML.write(to: mdURL, atomically: true, encoding: .utf8)
                 
                 let finalEPUB: URL?
 #if !CLI_MODE
                 // 🧠 智慧路由：根據頁數決定合成通道
                 if document.pageCount > 50 {
                     AppLogger.shared.info("📚 偵測到長篇文件 (\(document.pageCount) 頁)，啟動書籍引擎...")
-                    finalEPUB = EPUBSynthesizer.createBookEPUB(title: bookTitle, fullMarkdown: fullMarkdown, assetsURL: assetsDir)
+                    finalEPUB = EPUBSynthesizer.createBookEPUB(title: bookTitle, fullHTML: fullHTML, assetsURL: assetsDir)
                 } else {
                     AppLogger.shared.info("📄 短篇論文模式 (\(document.pageCount) 頁)，啟動標準單頁引擎...")
-                    finalEPUB = EPUBSynthesizer.createEPUB(title: bookTitle, markdown: fullMarkdown, assetsURL: assetsDir)
+                    finalEPUB = EPUBSynthesizer.createEPUB(title: bookTitle, html: fullHTML, assetsURL: assetsDir)
                 }
 #else
                 finalEPUB = mdURL
@@ -591,52 +459,7 @@ class BatchProcessor: ObservableObject {
         await self.currentTask?.value
     }
     
-    
-    // MARK: - OCR 降級引擎
-    
-    private static func performOCR(on cgImage: CGImage, scale: CGFloat, pageBounds: CGRect, regionOfInterest: CGRect? = nil) async -> [TextFragment] {
-        return await Task.detached(priority: .userInitiated) {
-            var fragments: [TextFragment] = []
-            let request = VNRecognizeTextRequest()
-            request.recognitionLevel = .accurate
-            request.usesLanguageCorrection = true
-            request.recognitionLanguages = ["zh-Hant", "en-US"]
-            if let roi = regionOfInterest {
-                request.regionOfInterest = roi
-            }
-            
-            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-            do {
-                try handler.perform([request])
-                guard let observations = request.results else { return fragments }
-                
-                let scaledSize = CGSize(width: pageBounds.width * scale, height: pageBounds.height * scale)
-                
-                for obs in observations {
-                    guard let topCandidate = obs.topCandidates(1).first else { continue }
-                    
-                    let absoluteRect = VNImageRectForNormalizedRect(obs.boundingBox, Int(scaledSize.width), Int(scaledSize.height))
-                    let displayRect = CGRect(
-                        x: absoluteRect.minX,
-                        y: scaledSize.height - absoluteRect.maxY,
-                        width: absoluteRect.width,
-                        height: absoluteRect.height
-                    )
-                    
-                    let fragment = TextFragment(
-                        text: topCandidate.string,
-                        bounds: displayRect,
-                        fontSize: absoluteRect.height,
-                        isBold: false
-                    )
-                    fragments.append(fragment)
-                }
-            } catch {
-                AppLogger.shared.error("OCR 失敗: \(error)")
-            }
-            return fragments
-        }.value
-    }
+
 
     // MARK: - 圖片裁切工具
     
@@ -667,3 +490,22 @@ class BatchProcessor: ObservableObject {
         }
     }
 }
+
+extension AppColor {
+    var hexString: String {
+        var r: CGFloat = 0
+        var g: CGFloat = 0
+        var b: CGFloat = 0
+        var a: CGFloat = 0
+        #if os(iOS)
+        self.getRed(&r, green: &g, blue: &b, alpha: &a)
+        #elseif os(macOS)
+        if let rgbColor = self.usingColorSpace(.deviceRGB) {
+            rgbColor.getRed(&r, green: &g, blue: &b, alpha: &a)
+        }
+        #endif
+        let rgb: Int = (Int)(r*255)<<16 | (Int)(g*255)<<8 | (Int)(b*255)<<0
+        return String(format: "#%06x", rgb)
+    }
+}
+

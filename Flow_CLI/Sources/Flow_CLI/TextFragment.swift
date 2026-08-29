@@ -15,7 +15,10 @@ struct TextFragment: Sendable {
     let text: String
     let bounds: CGRect          // 顯示座標系 (Y 已翻轉，原點在左上)
     let fontSize: CGFloat
+    let fontName: String?
     let isBold: Bool
+    let isItalic: Bool
+    let colorHex: String
 }
 
 // MARK: - Semantic Role
@@ -51,7 +54,7 @@ struct ParagraphBlock: Sendable {
     /// 粗體比例 (0.0 ~ 1.0) — cached at init
     let boldRatio: CGFloat
 
-    init(fragments: [TextFragment], role: SemanticRole, unifiedText: String, bounds: CGRect) {
+    nonisolated init(fragments: [TextFragment], role: SemanticRole, unifiedText: String, bounds: CGRect) {
         self.fragments = fragments
         self.role = role
         self.unifiedText = unifiedText
@@ -76,7 +79,7 @@ struct ParagraphBlock: Sendable {
     }
 
     /// 歸一化 Y 位置 (0.0 = 頁頂, 1.0 = 頁底)
-    func normalizedY(pageHeight: CGFloat) -> CGFloat {
+    nonisolated func normalizedY(pageHeight: CGFloat) -> CGFloat {
         guard pageHeight > 0 else { return 0.5 }
         return bounds.midY / pageHeight
     }
@@ -86,6 +89,7 @@ struct ParagraphBlock: Sendable {
 
 /// 欄位區域
 struct ColumnRegion: Sendable {
+    let xRange: ClosedRange<CGFloat>
     var fragments: [TextFragment]
 }
 
@@ -95,13 +99,14 @@ struct ColumnRegion: Sendable {
 struct VisualRegion: Sendable {
     let label: String       // "Picture", "Table", "Formula", "Figure"
     let rect: CGRect        // 顯示座標系
+    let confidence: Float
 }
 
 // MARK: - NMS 工具函式 (共用，不再重複)
 
-enum NMSUtils {
+enum NMSUtils: Sendable {
     /// 計算兩個矩形的 IoU (Intersection over Union)
-    static func calcIoU(_ rectA: CGRect, _ rectB: CGRect) -> CGFloat {
+    nonisolated static func calcIoU(_ rectA: CGRect, _ rectB: CGRect) -> CGFloat {
         let intersection = rectA.intersection(rectB)
         guard !intersection.isNull else { return 0.0 }
         let interArea = intersection.width * intersection.height
@@ -111,7 +116,7 @@ enum NMSUtils {
     }
 
     /// 計算 inner 被 outer 覆蓋的比例
-    static func calcCoverage(_ inner: CGRect, _ outer: CGRect) -> CGFloat {
+    nonisolated static func calcCoverage(_ inner: CGRect, _ outer: CGRect) -> CGFloat {
         let intersection = inner.intersection(outer)
         guard !intersection.isNull else { return 0.0 }
         let innerArea = inner.width * inner.height
@@ -119,4 +124,33 @@ enum NMSUtils {
         return (intersection.width * intersection.height) / innerArea
     }
 
+    /// 對 VNRecognizedObjectObservation 陣列進行 NMS 過濾
+    nonisolated static func filterObservations(
+        _ observations: [any NSObjectProtocol],
+        iouThreshold: CGFloat = 0.4,
+        coverageThreshold: CGFloat = 0.8,
+        getBoundingBox: (any NSObjectProtocol) -> CGRect,
+        getConfidence: (any NSObjectProtocol) -> Float
+    ) -> [Int] {
+        // 按信心度排序
+        let sorted = observations.enumerated().sorted { getConfidence($0.element) > getConfidence($1.element) }
+        var keptIndices: [Int] = []
+        var keptBoxes: [CGRect] = []
+
+        for (originalIndex, obs) in sorted {
+            let box = getBoundingBox(obs)
+            var keep = true
+            for keptBox in keptBoxes {
+                if calcIoU(box, keptBox) > iouThreshold || calcCoverage(box, keptBox) > coverageThreshold {
+                    keep = false
+                    break
+                }
+            }
+            if keep {
+                keptIndices.append(originalIndex)
+                keptBoxes.append(box)
+            }
+        }
+        return keptIndices
+    }
 }

@@ -7,9 +7,8 @@
 //
 
 import Foundation
-import Ink
 
-/// 負責將 Markdown 內容轉換並封裝為合規的 EPUB 檔案
+/// 負責將 XHTML 內容轉換並封裝為合規的 EPUB 檔案
 final class EPUBSynthesizer: Sendable {
     
     // MARK: - Cached Regex Patterns
@@ -156,28 +155,17 @@ final class EPUBSynthesizer: Sendable {
     // MARK: - 標準通道：單頁論文引擎
 
     /// 建立單頁或無分章論文的 EPUB 檔案
-    nonisolated static func createEPUB(title: String, markdown: String, assetsURL: URL) -> URL? {
+    nonisolated static func createEPUB(title: String, html: String, assetsURL: URL) -> URL? {
         let fm = FileManager.default
         let epubURL = fm.temporaryDirectory.appendingPathComponent("\(title).epub")
         let bookUUID = UUID().uuidString
         
         do {
-            // 🛡️ 單頁引擎不支援分章，需將 <CHAPTER_SPLIT> 清除以免破壞 XML 結構
-            let cleanMarkdown = markdown.replacingOccurrences(of: "<CHAPTER_SPLIT>", with: "\n\n---\n\n")
+            // 🛡️ 單頁引擎不支援分章，將 <!-- CHAPTER_SPLIT --> 轉為 <hr/>
+            let cleanHTML = html.replacingOccurrences(of: "<!-- CHAPTER_SPLIT -->", with: "\n\n<hr/>\n\n")
 
-            // 🛡️ 記憶體安全：分頁逐段解析，避免 Ink 一次處理整份巨型 Markdown 而 OOM
-            let parser = MarkdownParser()
-            let pageChunks = cleanMarkdown.components(separatedBy: "\n---\n")
-            var htmlFragments: [String] = []
-            for chunk in pageChunks {
-                let trimmed = chunk.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmed.isEmpty else { continue }
-                autoreleasepool {
-                    let fragment = parser.html(from: trimmed)
-                    htmlFragments.append(fragment)
-                }
-            }
-            let rawHTML = sanitizeHTMLBody(htmlFragments.joined(separator: "\n<hr/>\n"))
+            // 🛡️ 直接套用清洗
+            let rawHTML = sanitizeHTMLBody(cleanHTML)
             
             // 📖 注入標題 ID 並擷取 TOC 條目
             let (htmlBody, tocEntries) = injectHeadingIDs(rawHTML)
@@ -197,15 +185,21 @@ final class EPUBSynthesizer: Sendable {
                 <title>\(sanitizeForXML(title))</title>
                 <meta charset="utf-8"/>
                 <style>
-                    body { font-family: -apple-system, sans-serif; line-height: 1.8; padding: 5%; color: #333; }
-                    img { max-width: 100%; height: auto; display: block; margin: 25px auto; border-radius: 8px; }
-                    h1, h2, h3 { color: #111; margin-top: 1.5em; }
-                    table { border-collapse: collapse; width: 100%; margin: 20px 0; font-size: 0.9em; }
-                    th, td { border: 1px solid #ddd; padding: 12px; }
+                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; padding: 4%; color: #1c1c1e; background-color: #ffffff; }
+                    p { margin-bottom: 1.2em; text-indent: 0; }
+                    h1, h2, h3 { font-weight: 700; letter-spacing: -0.02em; color: #000000; margin-top: 1.8em; margin-bottom: 0.8em; }
+                    h1.doc-title { font-size: 2.2em; text-align: center; margin-bottom: 1.5em; }
+                    img { max-width: 100%; height: auto; display: block; margin: 30px auto; border-radius: 12px; }
+                    .doc-caption { text-align: center; font-size: 0.85em; color: #6c6c70; margin-top: -20px; margin-bottom: 30px; }
+                    table { border-collapse: collapse; width: 100%; margin: 24px 0; font-size: 0.9em; }
+                    th, td { border: 1px solid #d1d1d6; padding: 12px 16px; }
+                    th { background-color: #f2f2f7; }
                     @media (prefers-color-scheme: dark) {
-                        body { color: #e0e0e0; background: #1a1a1a; }
-                        h1, h2, h3 { color: #f0f0f0; }
-                        th, td { border-color: #444; }
+                        body { color: #e5e5ea; background-color: #000000; }
+                        h1, h2, h3 { color: #ffffff; }
+                        th { background-color: #1c1c1e; }
+                        th, td { border-color: #38383a; }
+                        .doc-caption { color: #8e8e93; }
                     }
                 </style>
             </head>
@@ -297,42 +291,37 @@ final class EPUBSynthesizer: Sendable {
     // MARK: - 書籍專用通道：多章節引擎
 
     /// 建立多章節書籍的 EPUB 檔案
-    nonisolated static func createBookEPUB(title: String, fullMarkdown: String, assetsURL: URL) -> URL? {
+    nonisolated static func createBookEPUB(title: String, fullHTML: String, assetsURL: URL) -> URL? {
         let fm = FileManager.default
         let epubURL = fm.temporaryDirectory.appendingPathComponent("\(title).epub")
         let bookUUID = UUID().uuidString
         
         do {
-            var rawChapters = fullMarkdown.components(separatedBy: "<CHAPTER_SPLIT>")
+            var rawChapters = fullHTML.components(separatedBy: "<!-- CHAPTER_SPLIT -->")
             rawChapters = rawChapters.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
             
-            let parser = MarkdownParser()
             var manifestItems = ""
             var spineItems = ""
             var navLinks = ""
             var ncxNavPoints = ""
             var chapterEntries: [EPUBArchiveEntry] = []
             
-            for (index, chapterMD) in rawChapters.enumerated() {
+            for (index, chapterHTML) in rawChapters.enumerated() {
                 let chapterId = "chapter_\(index + 1)"
                 let fileName = "\(chapterId).xhtml"
                 
-                let firstLine = chapterMD.components(separatedBy: .newlines).first(where: { !$0.isEmpty }) ?? "Chapter \(index + 1)"
-                let rawChapterTitle = firstLine.replacingOccurrences(of: "# ", with: "").replacingOccurrences(of: "#", with: "").trimmingCharacters(in: .whitespaces)
-                let safeTitle = sanitizeForXML(rawChapterTitle)
-                
-                // 🛡️ 分頁逐段解析 (同單頁引擎，防 OOM)
-                let chapterChunks = chapterMD.components(separatedBy: "\n---\n")
-                var chapterHTMLFragments: [String] = []
-                for chunk in chapterChunks {
-                    let trimmed = chunk.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !trimmed.isEmpty else { continue }
-                    autoreleasepool {
-                        let fragment = parser.html(from: trimmed)
-                        chapterHTMLFragments.append(fragment)
+                // Try to extract a title from the first heading tag in this chapter
+                var safeTitle = "Chapter \(index + 1)"
+                if let headingMatch = headingRegex.firstMatch(in: chapterHTML, options: [], range: NSRange(location: 0, length: chapterHTML.utf16.count)) {
+                    if let contentRange = Range(headingMatch.range(at: 3), in: chapterHTML) {
+                        let plainText = String(chapterHTML[contentRange]).replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression).trimmingCharacters(in: .whitespacesAndNewlines)
+                        if !plainText.isEmpty {
+                            safeTitle = sanitizeForXML(plainText)
+                        }
                     }
                 }
-                let rawHTML = sanitizeHTMLBody(chapterHTMLFragments.joined(separator: "\n"))
+                
+                let rawHTML = sanitizeHTMLBody(chapterHTML)
                 // 📖 注入標題 ID 並擷取 TOC 條目
                 let (htmlBody, tocEntries) = injectHeadingIDs(rawHTML)
                 
@@ -344,16 +333,21 @@ final class EPUBSynthesizer: Sendable {
                     <title>\(safeTitle)</title>
                     <meta charset="utf-8"/>
                     <style>
-                        body { font-family: "Palatino", "Georgia", serif; line-height: 1.8; padding: 5%; color: #111; text-align: justify; }
-                        p { text-indent: 1.5em; margin-bottom: 0.5em; }
-                        img { max-width: 100%; height: auto; display: block; margin: 20px auto; text-indent: 0; }
-                        h1, h2, h3 { font-family: -apple-system, sans-serif; color: #000; margin-top: 1.5em; text-indent: 0; }
-                        table { border-collapse: collapse; width: 100%; margin: 20px 0; font-size: 0.9em; text-indent: 0; }
-                        th, td { border: 1px solid #ddd; padding: 12px; }
+                        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; padding: 4%; color: #1c1c1e; background-color: #ffffff; }
+                        p { margin-bottom: 1.2em; text-indent: 0; }
+                        h1, h2, h3 { font-weight: 700; letter-spacing: -0.02em; color: #000000; margin-top: 1.8em; margin-bottom: 0.8em; }
+                        h1.doc-title { font-size: 2.2em; text-align: center; margin-bottom: 1.5em; }
+                        img { max-width: 100%; height: auto; display: block; margin: 30px auto; border-radius: 12px; }
+                        .doc-caption { text-align: center; font-size: 0.85em; color: #6c6c70; margin-top: -20px; margin-bottom: 30px; }
+                        table { border-collapse: collapse; width: 100%; margin: 24px 0; font-size: 0.9em; }
+                        th, td { border: 1px solid #d1d1d6; padding: 12px 16px; }
+                        th { background-color: #f2f2f7; }
                         @media (prefers-color-scheme: dark) {
-                            body { color: #e0e0e0; background: #1a1a1a; }
-                            h1, h2, h3 { color: #f0f0f0; }
-                            th, td { border-color: #444; }
+                            body { color: #e5e5ea; background-color: #000000; }
+                            h1, h2, h3 { color: #ffffff; }
+                            th { background-color: #1c1c1e; }
+                            th, td { border-color: #38383a; }
+                            .doc-caption { color: #8e8e93; }
                         }
                     </style>
                 </head>

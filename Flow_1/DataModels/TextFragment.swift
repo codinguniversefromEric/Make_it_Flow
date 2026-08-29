@@ -15,7 +15,10 @@ struct TextFragment: Sendable {
     let text: String
     let bounds: CGRect          // 顯示座標系 (Y 已翻轉，原點在左上)
     let fontSize: CGFloat
+    let fontName: String?
     let isBold: Bool
+    let isItalic: Bool
+    let colorHex: String
 }
 
 // MARK: - Semantic Role

@@ -13,9 +13,10 @@ import Combine
 // MARK: - 可用的 AI 模型清單
 
 /// 定義可用的視覺辨識模型
-enum VisionModelType: String, CaseIterable, Identifiable {
-    case yoloStandard = "YOLO Standard (best)"
-    case yoloFast = "YOLO Fast (best_conf0.1)"
+public enum VisionModelType: String, CaseIterable, Identifiable {
+    case yoloMedium = "YOLOv26 Medium (yolo26m-doclaynet)"
+    case yoloStandard = "YOLOv26 Small (yolo26s-doclaynet)"
+    case yoloFast = "YOLOv26 Nano (yolo26n-doclaynet)"
     
     public var id: String { self.rawValue }
 }
@@ -33,7 +34,7 @@ public struct LayoutBlock: Identifiable {
 // MARK: - 抽象解析器介面
 
 /// 所有版面解析器必須實作的共用介面
-protocol LayoutParser {
+public protocol LayoutParser {
     func detectLayout(in cgImage: CGImage) async -> [LayoutBlock]
 }
 
@@ -43,6 +44,7 @@ protocol LayoutParser {
 public class LayoutVisionManager: ObservableObject {
     public static let shared = LayoutVisionManager()
     
+    @Published public var currentParserName: String = "Unknown"
     private var activeParser: LayoutParser?
     
     private init() {
@@ -54,14 +56,18 @@ public class LayoutVisionManager: ObservableObject {
         let selectedModel = AppSettings.shared.selectedModel
         
         switch selectedModel {
+        case .yoloMedium:
+            self.activeParser = YOLOLayoutParser(modelName: "yolo26m-doclaynet")
+            self.currentParserName = "Manual: YOLOv26m"
+            AppLogger.shared.info("✅ 視覺引擎已切換為：YOLOv26m (Manual)")
         case .yoloStandard:
-            self.activeParser = YOLOLayoutParser(modelName: "best")
-            self.currentParserName = "Manual: YOLO Standard"
-            AppLogger.shared.info("✅ 視覺引擎已切換為：YOLO Standard (Manual)")
+            self.activeParser = YOLOLayoutParser(modelName: "yolo26s-doclaynet")
+            self.currentParserName = "Manual: YOLOv26s"
+            AppLogger.shared.info("✅ 視覺引擎已切換為：YOLOv26s (Manual)")
         case .yoloFast:
-            self.activeParser = YOLOLayoutParser(modelName: "best_conf0.1")
-            self.currentParserName = "Manual: YOLO Fast"
-            AppLogger.shared.info("✅ 視覺引擎已切換為：YOLO Fast (Manual)")
+            self.activeParser = YOLOLayoutParser(modelName: "yolo26n-doclaynet")
+            self.currentParserName = "Manual: YOLOv26n"
+            AppLogger.shared.info("✅ 視覺引擎已切換為：YOLOv26n (Manual)")
         }
     }
     
@@ -77,6 +83,7 @@ public class LayoutVisionManager: ObservableObject {
 /// 基於 YOLO 模型的版面解析器，包含影像切片處理
 class YOLOLayoutParser: LayoutParser {
     private var visionModel: VNCoreMLModel?
+    private var targetSize: CGFloat = 640.0
     private let modelQueue = DispatchQueue(label: "com.flow.visionmodel.yolo")
     
     /// 初始化並載入指定的 YOLO 模型
@@ -85,24 +92,18 @@ class YOLOLayoutParser: LayoutParser {
             let config = MLModelConfiguration()
             config.computeUnits = .all
             
-            #if !CLI_MODE
+#if !CLI_MODE
             let coreMLModel: MLModel
-            if modelName == "best" {
-                coreMLModel = try best(configuration: config).model
-            } else if modelName == "best_conf0.1" {
-                coreMLModel = try best_conf0_1(configuration: config).model
+            let bundle = Bundle.main
+            if let compiledURL = bundle.url(forResource: modelName, withExtension:"mlmodelc") {
+                coreMLModel = try MLModel(contentsOf: compiledURL, configuration: config)
+            } else if let packageURL = bundle.url(forResource: modelName, withExtension:"mlpackage") {
+                let compiledURL = try MLModel.compileModel(at: packageURL)
+                coreMLModel = try MLModel(contentsOf: compiledURL, configuration: config)
             } else {
-                // 動態載入新模型
-                let bundle = Bundle.main
-                if let packageURL = bundle.url(forResource: modelName, withExtension:"mlmodelc") ?? bundle.url(forResource: modelName, withExtension:"mlpackage") {
-                    let compiledURL = try MLModel.compileModel(at: packageURL)
-                    coreMLModel = try MLModel(contentsOf: compiledURL, configuration: config)
-                } else {
-                    // Fallback
-                    coreMLModel = try best_conf0_1(configuration: config).model
-                }
+                fatalError("CoreML Model '\(modelName)' not found! Please ensure it is compiled via Xcode Build Phase.")
             }
-            #else
+#else
             // CLI 動態載入
             var actualModelName = modelName
             if modelName == "yolov11s-doclaynet" {
@@ -111,7 +112,12 @@ class YOLOLayoutParser: LayoutParser {
             let packageURL = Bundle.module.url(forResource: actualModelName, withExtension:"mlpackage")!
             let compiledURL = try MLModel.compileModel(at: packageURL)
             let coreMLModel = try MLModel(contentsOf: compiledURL, configuration: config)
-            #endif
+#endif
+            
+            // 讀取模型的影像輸入限制
+            if let imgConstraint = coreMLModel.modelDescription.inputDescriptionsByName["image"]?.imageConstraint {
+                self.targetSize = CGFloat(imgConstraint.pixelsWide)
+            }
             
             let newModel = try VNCoreMLModel(for: coreMLModel)
             
@@ -142,50 +148,11 @@ class YOLOLayoutParser: LayoutParser {
         let width = CGFloat(cgImage.width)
         let height = CGFloat(cgImage.height)
         
-        // 判斷是否需要切片
-        let ratio = height / width
-        var tiles: [(image: CGImage, rect: CGRect)] = []
-        
-        if ratio > 1.2 {
-            // 長條形，進行垂直切片
-            let numSlices = Int(ceil(ratio))
-            let sliceHeight = height / CGFloat(numSlices)
-            let overlap = sliceHeight * 0.1 // 10% overlap
-            
-            for i in 0..<numSlices {
-                let startY = CGFloat(i) * sliceHeight - (i > 0 ? overlap : 0)
-                var endY = CGFloat(i + 1) * sliceHeight + (i < numSlices - 1 ? overlap : 0)
-                endY = min(endY, height)
-                let actualStartY = max(0, startY)
-                let actualHeight = endY - actualStartY
-                
-                let rect = CGRect(x: 0, y: actualStartY, width: width, height: actualHeight)
-                if let cropped = cgImage.cropping(to: rect) {
-                    tiles.append((cropped, rect))
-                }
-            }
-        } else {
-            // 比例接近方形，不需要切片
-            tiles.append((cgImage, CGRect(x: 0, y: 0, width: width, height: height)))
-        }
-        
-        // 使用 TaskGroup 並行處理所有切片
-        var allBlocks: [LayoutBlock] = []
-        
-        await withTaskGroup(of: [LayoutBlock].self) { group in
-            for tile in tiles {
-                group.addTask {
-                    return await self.processTile(tileImage: tile.image, tileRect: tile.rect, fullWidth: width, fullHeight: height, model: model)
-                }
-            }
-            
-            for await blocks in group {
-                allBlocks.append(contentsOf: blocks)
-            }
-        }
+        let fullRect = CGRect(x: 0, y: 0, width: width, height: height)
+        let blocks = await self.processTile(tileImage: cgImage, tileRect: fullRect, fullWidth: width, fullHeight: height, model: model)
         
         // 執行 NMS 過濾重複框
-        return applyNMS(blocks: allBlocks, iouThreshold: 0.5)
+        return applyNMS(blocks: blocks, iouThreshold: 0.5)
     }
     
     /// 處理單一影像切片的推論與座標轉換
@@ -242,16 +209,16 @@ class YOLOLayoutParser: LayoutParser {
                         let strideBox = yolo10.strides[1].intValue
                         let confThreshold: Float32 = 0.25
                         
-                        // Vision's .scaleFit pads the image to fit 1024x1024.
-                        // Coordinates (x1, y1, x2, y2) are in the 1024x1024 space.
+                        // Vision's .scaleFit pads the image to fit targetSize.
+                        // Coordinates (x1, y1, x2, y2) are in the targetSize space.
                         // We must map them back to the original tileImage coordinate space [0, 1].
                         let tileW = CGFloat(tileImage.width)
                         let tileH = CGFloat(tileImage.height)
-                        let scale = min(1024.0 / tileW, 1024.0 / tileH)
+                        let scale = min(self.targetSize / tileW, self.targetSize / tileH)
                         let scaledW = tileW * scale
                         let scaledH = tileH * scale
-                        let padX = (1024.0 - scaledW) / 2.0
-                        let padY = (1024.0 - scaledH) / 2.0
+                        let padX = (self.targetSize - scaledW) / 2.0
+                        let padY = (self.targetSize - scaledH) / 2.0
                         
                         for b in 0..<numBoxes {
                             let conf = pointer[b * strideBox + 4]
@@ -324,10 +291,10 @@ class YOLOLayoutParser: LayoutParser {
                                 let w  = coordPointer[a * coordStrideAnchor + 2 * coordStrideDim]
                                 let h  = coordPointer[a * coordStrideAnchor + 3 * coordStrideDim]
                                 
-                                let nx = cx > 2.0 ? cx / 1024.0 : cx
-                                let ny = cy > 2.0 ? cy / 1024.0 : cy
-                                let nw = w > 2.0 ? w / 1024.0 : w
-                                let nh = h > 2.0 ? h / 1024.0 : h
+                                let nx = cx > 2.0 ? cx / Float32(self.targetSize) : cx
+                                let ny = cy > 2.0 ? cy / Float32(self.targetSize) : cy
+                                let nw = w > 2.0 ? w / Float32(self.targetSize) : w
+                                let nh = h > 2.0 ? h / Float32(self.targetSize) : h
                                 
                                 let minX = CGFloat(nx - nw / 2)
                                 let minY = CGFloat(1.0 - (ny + nh / 2))
@@ -410,6 +377,3 @@ class YOLOLayoutParser: LayoutParser {
         return keep
     }
 }
-
-// MARK: - SuryaLayoutParser (High-End Engine)
-

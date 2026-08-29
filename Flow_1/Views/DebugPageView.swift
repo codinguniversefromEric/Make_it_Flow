@@ -159,13 +159,25 @@ struct DebugPageView: View {
                     )
                     
                     var fontSize: CGFloat = 12.0
+                    var fontName: String? = nil
                     var isBold = false
+                    var isItalic = false
+                    var colorHex = "#000000"
                     
                     if let attrStr = line.attributedString {
-                        attrStr.enumerateAttribute(.font, in: NSRange(location: 0, length: attrStr.length)) { value, _, _ in
-                            if let font = value as? UIFont {
+                        attrStr.enumerateAttributes(in: NSRange(location: 0, length: attrStr.length)) { attrs, _, _ in
+                            if let font = attrs[.font] as? AppFont {
                                 fontSize = font.pointSize
-                                isBold = font.fontDescriptor.symbolicTraits.contains(.traitBold)
+                                fontName = font.fontName
+                                isBold = font.isAppFontBold
+                                #if os(iOS)
+                                isItalic = font.fontDescriptor.symbolicTraits.contains(.traitItalic)
+                                #elseif os(macOS)
+                                isItalic = font.fontDescriptor.symbolicTraits.contains(.italic)
+                                #endif
+                            }
+                            if let color = attrs[.foregroundColor] as? AppColor {
+                                colorHex = color.hexString
                             }
                         }
                     }
@@ -174,7 +186,10 @@ struct DebugPageView: View {
                         text: lineText,
                         bounds: displayRect,
                         fontSize: fontSize * scale,
-                        isBold: isBold
+                        fontName: fontName,
+                        isBold: isBold,
+                        isItalic: isItalic,
+                        colorHex: colorHex
                     ))
                 }
             }
@@ -183,15 +198,12 @@ struct DebugPageView: View {
             // LayoutEngine → 欄位偵測 + 段落重組
             // ═══════════════════════════════════════
             
-            var paragraphs = LayoutEngine.processPage(
+            var paragraphs = LayoutEngine.processWithLayoutBlocks(
                 fragments: textFragments,
+                blocks: filteredObservations,
                 pageWidth: scaledSize.width,
                 pageHeight: scaledSize.height
             )
-            
-            // SemanticClassifier → 語意分類
-            let styleRegistry = StyleRegistry.analyze(document: document)
-            SemanticClassifier.classify(blocks: &paragraphs, pageHeight: scaledSize.height, styleRegistry: styleRegistry)
             
             // ═══════════════════════════════════════
             // 繪製除錯視覺化圖層
@@ -225,7 +237,7 @@ struct DebugPageView: View {
                 }
                 
                 // 繪製語意分類段落框 (半透明藍色)
-                for para in paragraphs where !SemanticClassifier.shouldDrop(para.role) {
+                for para in paragraphs where !LayoutEngine.shouldDrop(para.role) {
                     let roleColor = getRoleColor(for: para.role)
                     context.setStrokeColor(roleColor.withAlphaComponent(0.5).cgColor)
                     context.setLineWidth(1.0)
@@ -254,10 +266,10 @@ struct DebugPageView: View {
             
             // 語意分類段落
             for para in paragraphs {
-                if SemanticClassifier.shouldDrop(para.role) {
+                if LayoutEngine.shouldDrop(para.role) {
                     markdownOutput += "~~[\(para.role.rawValue)] \(para.unifiedText.prefix(40))...~~ (已丟棄)\n\n"
                 } else {
-                    markdownOutput += SemanticClassifier.toMarkdown(block: para)
+                    markdownOutput += LayoutEngine.toHTML(block: para, baseFontSize: 12.0)
                 }
             }
             

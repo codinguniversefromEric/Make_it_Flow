@@ -23,21 +23,16 @@
 * Xcode 15.0+ (強烈建議使用 Xcode 16 以支援 Swift 6)
 * iOS 17.0+ 實體裝置或模擬器
 
-### 安裝與執行 (一鍵下載 Model)
+### 安裝與執行 (開箱即用)
 
 1. Clone 本專案：
    ```bash
    git clone https://github.com/codinguniversefromEric/Make_it_Flow.git
    cd Make_it_Flow
    ```
-2. **自動下載必需的 CoreML Models**：
-   由於模型檔案較大，我們未將其放入 Git。請在終端機執行以下腳本，它會自動透過 HuggingFace API 將缺少的 `.mlpackage` 下載並放置到 `Flow_1/Models` 資料夾：
-   ```bash
-   sh scripts/download_models.sh
-   ```
-   *(註：下載完成後，請確認這些 `.mlpackage` 有被正確加入 Xcode 的 `Flow_1` Target 中)*
-3. 在 Xcode 中開啟 `Flow_1.xcodeproj`。
-4. 選擇您的模擬器或 iOS 裝置，按下 `Cmd + R` 即可編譯執行！
+2. 在 Xcode 中開啟 `Flow_1.xcodeproj`。
+3. 選擇您的模擬器或 iOS 裝置，按下 `Cmd + R`！
+   - CoreML 模型已直接整合於專案中，Xcode 會自動處理編譯與打包，不需再手動下載或設定任何腳本。
 
 ## 🧠 架構總覽與資料流 (Architecture & Data Flow)
 
@@ -47,30 +42,27 @@
 flowchart TD
     A[使用者匯入 PDF] --> B(VisionEngine & BatchProcessor)
     
-    subgraph Core Processing
-    B -->|Image + Text| C(YOLO Model 推論)
-    C -->|Bounding Boxes| D(LayoutEngine)
-    D -->|排序後的文字與圖塊| E(LLMEngine)
+    subgraph 雙平台核心 (KMP Shared Module)
+    B -->|圖片 Image| C(DocLayout-YOLO 14 類推論)
+    B -->|富文本 (座標/顏色/大小)| D(Hybrid Corrector 混合幾何糾錯)
+    C -->|D4LA Bounding Boxes| D
+    D -->|防禦性排序與標籤綁定| E(LayoutSortingAlgorithm)
     end
     
-    E -->|語意修復後的純文字| F(EPUBSynthesizer)
-    F -->|EPUB 封裝檔| G[LibraryStore]
+    E -->|分類後的結構化圖文與 Metadata| F(EPUBSynthesizer)
+    F -->|出版社級 EPUB (含 CSS & OPF)| G[LibraryStore]
     G --> H[呈現在 UI 書庫]
 
-    style Core Processing fill:#f9f9f9,stroke:#333,stroke-width:2px
+    style 雙平台核心 (KMP Shared Module) fill:#f9f9f9,stroke:#333,stroke-width:2px
 ```
 
-### 核心模組 I/O 定義
-* **`VisionEngine` & `BatchProcessor`**: 系統核心。將 PDF 轉為圖片後，透過 YOLO 找出排版區塊 (Tables, Figures)，同時透過 PDFKit 擷取原生文字。
-  - **Input**: `PDF Page` (URL 或 Data)
-  - **Output**: `[BoundingBox, Raw Text]`
-* **`LayoutEngine`**: 實作水平帶狀掃描演算法 (Horizontal banding algorithm)，解決多欄位與複雜段落的文字順序問題。
-  - **Input**: `[BoundingBox, Raw Text]`
-  - **Output**: `Sorted Text Blocks`
-* **`LLMEngine`**: 文字潤飾層，負責修復斷字與句子邊界。
-  - **Input**: `Sorted Text Blocks`
-  - **Output**: `Refined Markdown/Text`
-* **`EPUBSynthesizer`**: 將清理後的文字、圖片與目錄 (TOC) 組裝成合法的 EPUB 檔案。
+### 核心模組 I/O 定義 (KMP 新架構)
+* **`VisionEngine` & `BatchProcessor`**: iOS 原生資料提供者。將 PDF 轉為 1024x1024 圖片餵給模型，同時透過 PDFKit 擷取富文本 (座標、顏色 Hex、粗斜體)。
+* **`KMP Shared Module` (Kotlin 雙平台核心)**: 系統的大腦。完全無平台依賴 (Platform-Agnostic)。
+  - **`DocLayout-YOLO` (模型層)**: 取代了所有舊版瞎猜邏輯，提供精準的 14 類版面標籤 (Title, Heading, Body, List, Caption, Table, Picture, Formula 等)。
+  - **`Hybrid Corrector` (混合糾錯器)**: 結合 YOLO 的骨架與 PDFKit 的原生幾何特徵，互相補足 (防漏字、防誤判)，追求 99% 的極致準確率。
+  - **`LayoutSortingAlgorithm` (排序與綁定)**: 負責文字吸附、閱讀順序排序、跨頁斷句續接、以及圖片標題 (Caption) 綁定。
+* **`EPUBSynthesizer` (Publisher-Grade Output)**: 出版社級的 EPUB 產生器。負責將 14 類標籤轉為帶有 `<span>` 原色的 XHTML 與專業 CSS 樣式。實施智慧雙軌表格防護 (簡單表格轉為 HTML，複雜表格直接切圖保存)，並自動生成 IDPF 合規的 `content.opf` 元數據。
 * **`LibraryStore`**: 管理轉換好的 EPUB 及其縮圖，使用標準 JSON 編碼儲存於 App 的 Document Directory。
 
 ## 📊 模型效能指標 (Model Benchmark & Metrics)
@@ -99,8 +91,7 @@ flowchart TD
 
 ### 模型與框架致謝
 1. **CoreML / YOLO Framework**: 基於 [Ultralytics YOLOv8](https://github.com/ultralytics/ultralytics) (AGPL-3.0)。
-2. **Document Layout Model**: 使用來自 **VAIV-TA-LAB** 的 [vaivTA/yolov8n_doclaynet](https://huggingface.co/vaivTA/yolov8n_doclaynet) 預訓練權重。
-3. **Document Structure Model**: 使用 [ashen007/document-structure-detection](https://huggingface.co/ashen007/document-structure-detection) (`DSD-YOLOv8-v2.pt`) 的預訓練權重。
+2. **Document Layout Model**: 使用來自 [hantian/yolo-doclaynet](https://huggingface.co/hantian/yolo-doclaynet/tree/main) 的預訓練權重。這些模型檔案大小經過優化，已直接包含於專案庫中，您可以直接 clone 並編譯，無需額外下載模型檔！
 
 ### ⚠️ 商標與資產聲明
 雖然程式碼與模型架構依循 AGPL-3.0 免費釋出，但 **"Make it Flow"** 的品牌名稱、App Icon、UI/UX 視覺設計及相關品牌資產，皆為作者專屬之智慧財產。

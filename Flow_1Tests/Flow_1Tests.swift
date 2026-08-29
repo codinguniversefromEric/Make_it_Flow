@@ -229,9 +229,9 @@ final class ParagraphBlockTests: XCTestCase {
 
     func testDominantFontSizeIsMostFrequent() {
         let fragments = [
-            TextFragment(text: "Hello", bounds: .zero, fontSize: 12.0, isBold: false),
-            TextFragment(text: "World", bounds: .zero, fontSize: 12.0, isBold: true),
-            TextFragment(text: "Big", bounds: .zero, fontSize: 24.0, isBold: true)
+            TextFragment(text: "Hello", bounds: .zero, fontSize: 12.0, fontName: nil, isBold: false, isItalic: false, colorHex: "#000000"),
+            TextFragment(text: "World", bounds: .zero, fontSize: 12.0, fontName: nil, isBold: true, isItalic: false, colorHex: "#000000"),
+            TextFragment(text: "Big", bounds: .zero, fontSize: 24.0, fontName: nil, isBold: true, isItalic: false, colorHex: "#000000")
         ]
         let block = ParagraphBlock(
             fragments: fragments,
@@ -246,7 +246,7 @@ final class ParagraphBlockTests: XCTestCase {
 
     func testDominantFontSizeWithSingleFragment() {
         let fragments = [
-            TextFragment(text: "Only", bounds: .zero, fontSize: 18.5, isBold: false)
+            TextFragment(text: "Only", bounds: .zero, fontSize: 18.5, fontName: nil, isBold: false, isItalic: false, colorHex: "#000000")
         ]
         let block = ParagraphBlock(
             fragments: fragments,
@@ -259,9 +259,9 @@ final class ParagraphBlockTests: XCTestCase {
 
     func testBoldRatioCalculation() {
         let fragments = [
-            TextFragment(text: "A", bounds: .zero, fontSize: 12.0, isBold: true),
-            TextFragment(text: "B", bounds: .zero, fontSize: 12.0, isBold: false),
-            TextFragment(text: "C", bounds: .zero, fontSize: 12.0, isBold: true)
+            TextFragment(text: "A", bounds: .zero, fontSize: 12.0, fontName: nil, isBold: true, isItalic: false, colorHex: "#000000"),
+            TextFragment(text: "B", bounds: .zero, fontSize: 12.0, fontName: nil, isBold: false, isItalic: false, colorHex: "#000000"),
+            TextFragment(text: "C", bounds: .zero, fontSize: 12.0, fontName: nil, isBold: true, isItalic: false, colorHex: "#000000")
         ]
         let block = ParagraphBlock(
             fragments: fragments,
@@ -275,8 +275,8 @@ final class ParagraphBlockTests: XCTestCase {
 
     func testBoldRatioAllBold() {
         let fragments = [
-            TextFragment(text: "X", bounds: .zero, fontSize: 14.0, isBold: true),
-            TextFragment(text: "Y", bounds: .zero, fontSize: 14.0, isBold: true)
+            TextFragment(text: "X", bounds: .zero, fontSize: 14.0, fontName: nil, isBold: true, isItalic: false, colorHex: "#000000"),
+            TextFragment(text: "Y", bounds: .zero, fontSize: 14.0, fontName: nil, isBold: true, isItalic: false, colorHex: "#000000")
         ]
         let block = ParagraphBlock(
             fragments: fragments,
@@ -289,8 +289,8 @@ final class ParagraphBlockTests: XCTestCase {
 
     func testBoldRatioNoneBold() {
         let fragments = [
-            TextFragment(text: "X", bounds: .zero, fontSize: 14.0, isBold: false),
-            TextFragment(text: "Y", bounds: .zero, fontSize: 14.0, isBold: false)
+            TextFragment(text: "X", bounds: .zero, fontSize: 14.0, fontName: nil, isBold: false, isItalic: false, colorHex: "#000000"),
+            TextFragment(text: "Y", bounds: .zero, fontSize: 14.0, fontName: nil, isBold: false, isItalic: false, colorHex: "#000000")
         ]
         let block = ParagraphBlock(
             fragments: fragments,
@@ -359,21 +359,21 @@ final class SemanticClassifierTests: XCTestCase {
     // MARK: shouldDrop
 
     func testShouldDropPageArtifacts() {
-        XCTAssertTrue(SemanticClassifier.shouldDrop(.pageHeader))
-        XCTAssertTrue(SemanticClassifier.shouldDrop(.pageFooter))
-        XCTAssertTrue(SemanticClassifier.shouldDrop(.pageNumber))
+        XCTAssertTrue(LayoutEngine.shouldDrop(.pageHeader))
+        XCTAssertTrue(LayoutEngine.shouldDrop(.pageFooter))
+        XCTAssertTrue(LayoutEngine.shouldDrop(.pageNumber))
     }
 
     func testShouldNotDropContentRoles() {
-        XCTAssertFalse(SemanticClassifier.shouldDrop(.body))
-        XCTAssertFalse(SemanticClassifier.shouldDrop(.heading))
-        XCTAssertFalse(SemanticClassifier.shouldDrop(.title))
-        XCTAssertFalse(SemanticClassifier.shouldDrop(.listItem))
-        XCTAssertFalse(SemanticClassifier.shouldDrop(.footnote))
-        XCTAssertFalse(SemanticClassifier.shouldDrop(.caption))
-        XCTAssertFalse(SemanticClassifier.shouldDrop(.formula))
-        XCTAssertFalse(SemanticClassifier.shouldDrop(.table))
-        XCTAssertFalse(SemanticClassifier.shouldDrop(.picture))
+        XCTAssertFalse(LayoutEngine.shouldDrop(.body))
+        XCTAssertFalse(LayoutEngine.shouldDrop(.heading))
+        XCTAssertFalse(LayoutEngine.shouldDrop(.title))
+        XCTAssertFalse(LayoutEngine.shouldDrop(.listItem))
+        XCTAssertFalse(LayoutEngine.shouldDrop(.footnote))
+        XCTAssertFalse(LayoutEngine.shouldDrop(.caption))
+        XCTAssertFalse(LayoutEngine.shouldDrop(.formula))
+        XCTAssertFalse(LayoutEngine.shouldDrop(.table))
+        XCTAssertFalse(LayoutEngine.shouldDrop(.picture))
     }
 
     // MARK: toMarkdown
@@ -385,8 +385,8 @@ final class SemanticClassifierTests: XCTestCase {
             unifiedText: "Hello world",
             bounds: .zero
         )
-        let md = SemanticClassifier.toMarkdown(block: block)
-        XCTAssertEqual(md, "Hello world\n\n")
+        let md = LayoutEngine.toHTML(block: block, baseFontSize: 12.0)
+        XCTAssertEqual(md, "<p>Hello world</p>\n")
     }
 
     func testToMarkdownHeading() {
@@ -396,8 +396,8 @@ final class SemanticClassifierTests: XCTestCase {
             unifiedText: "Chapter 1",
             bounds: .zero
         )
-        let md = SemanticClassifier.toMarkdown(block: block)
-        XCTAssertEqual(md, "### Chapter 1\n\n")
+        let md = LayoutEngine.toHTML(block: block, baseFontSize: 12.0)
+        XCTAssertEqual(md, "<h2>Chapter 1</h2>\n")
     }
 
     func testToMarkdownTitle() {
@@ -407,8 +407,8 @@ final class SemanticClassifierTests: XCTestCase {
             unifiedText: "My Book",
             bounds: .zero
         )
-        let md = SemanticClassifier.toMarkdown(block: block)
-        XCTAssertEqual(md, "# My Book\n\n")
+        let md = LayoutEngine.toHTML(block: block, baseFontSize: 12.0)
+        XCTAssertEqual(md, "<h1>My Book</h1>\n")
     }
 
     func testToMarkdownListItem() {
@@ -418,8 +418,8 @@ final class SemanticClassifierTests: XCTestCase {
             unifiedText: "First item",
             bounds: .zero
         )
-        let md = SemanticClassifier.toMarkdown(block: block)
-        XCTAssertEqual(md, "- First item\n")
+        let md = LayoutEngine.toHTML(block: block, baseFontSize: 12.0)
+        XCTAssertEqual(md, "<li class=\"doc-list-item\">First item</li>\n")
     }
 
     func testToMarkdownFootnote() {
@@ -429,8 +429,8 @@ final class SemanticClassifierTests: XCTestCase {
             unifiedText: "See reference 1",
             bounds: .zero
         )
-        let md = SemanticClassifier.toMarkdown(block: block)
-        XCTAssertEqual(md, "> *See reference 1*\n\n")
+        let md = LayoutEngine.toHTML(block: block, baseFontSize: 12.0)
+        XCTAssertEqual(md, "<div class=\"doc-footnote\">See reference 1</div>\n")
     }
 
     func testToMarkdownCaption() {
@@ -440,8 +440,8 @@ final class SemanticClassifierTests: XCTestCase {
             unifiedText: "Figure 1: Chart",
             bounds: .zero
         )
-        let md = SemanticClassifier.toMarkdown(block: block)
-        XCTAssertEqual(md, "*Figure 1: Chart*\n\n")
+        let md = LayoutEngine.toHTML(block: block, baseFontSize: 12.0)
+        XCTAssertEqual(md, "<div class=\"doc-caption\">Figure 1: Chart</div>\n")
     }
 
     func testToMarkdownFormula() {
@@ -451,8 +451,8 @@ final class SemanticClassifierTests: XCTestCase {
             unifiedText: "E = mc^2",
             bounds: .zero
         )
-        let md = SemanticClassifier.toMarkdown(block: block)
-        XCTAssertEqual(md, "$$ E = mc^2 $$\n\n")
+        let md = LayoutEngine.toHTML(block: block, baseFontSize: 12.0)
+        XCTAssertEqual(md, "<div class=\"doc-formula\">E = mc^2</div>\n")
     }
 
     func testToMarkdownEmpty() {
@@ -462,7 +462,7 @@ final class SemanticClassifierTests: XCTestCase {
             unifiedText: "   ",
             bounds: .zero
         )
-        let md = SemanticClassifier.toMarkdown(block: block)
+        let md = LayoutEngine.toHTML(block: block, baseFontSize: 12.0)
         XCTAssertEqual(md, "")
     }
 
@@ -474,7 +474,7 @@ final class SemanticClassifierTests: XCTestCase {
                 unifiedText: "Some text",
                 bounds: .zero
             )
-            let md = SemanticClassifier.toMarkdown(block: block)
+            let md = LayoutEngine.toHTML(block: block, baseFontSize: 12.0)
             XCTAssertEqual(md, "", "Expected empty markdown for role \(role)")
         }
     }
@@ -487,7 +487,7 @@ final class SemanticClassifierTests: XCTestCase {
                 unifiedText: "Visual content",
                 bounds: .zero
             )
-            let md = SemanticClassifier.toMarkdown(block: block)
+            let md = LayoutEngine.toHTML(block: block, baseFontSize: 12.0)
             XCTAssertEqual(md, "", "Expected empty markdown for role \(role)")
         }
     }

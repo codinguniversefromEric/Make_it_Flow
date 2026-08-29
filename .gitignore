@@ -1,6 +1,6 @@
 *.bin
 *.safetensors
-*.mlpackage
+
 *.mlmodel
 *.mlmodelc
 
