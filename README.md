@@ -47,7 +47,7 @@ The system pipeline is designed for high-performance extraction of academic pape
 flowchart TD
     A[/"Input PDF"/] --> B["PDFKit & VisionEngine"]
     
-    B -->|Rasterized Images| C["CoreML YOLOv8"]
+    B -->|Rasterized Images| C["CoreML YOLO DLA model"]
     B -->|Native Rich Text| D["Hybrid Corrector"]
     
     C -->|14-Class Bounding Boxes| D
