@@ -33,6 +33,10 @@ flowchart LR
     E --> F["Make it Flow Core Engine"]
     F --> G["Generate EPUB / TOC"]
     G --> H[/"Save to output.epub"/]
+    
+    style A fill:#f96,stroke:#333,stroke-width:2px
+    style H fill:#9f6,stroke:#333,stroke-width:2px
+    style F fill:#69f,stroke:#333,stroke-width:2px,color:#fff
 ```
 
 ## 🧠 Architecture Overview
@@ -52,6 +56,11 @@ flowchart TD
     E --> F["EPUB Synthesizer"]
     
     F --> G[("Publisher-Grade EPUB")]
+    
+    style A fill:#f96,stroke:#333,stroke-width:2px
+    style G fill:#9f6,stroke:#333,stroke-width:2px
+    style C fill:#f9f,stroke:#333,stroke-width:2px
+    style F fill:#69f,stroke:#333,stroke-width:2px,color:#fff
 ```
 
 1. **VisionEngine**: Executes YOLO to classify 14 types of layout regions (Title, Body, Table, Picture, Formula, etc.).
