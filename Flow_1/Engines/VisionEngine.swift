@@ -109,7 +109,11 @@ class YOLOLayoutParser: LayoutParser {
             if modelName == "yolov11s-doclaynet" {
                 actualModelName = "yolov10s_best"
             }
-            let packageURL = Bundle.module.url(forResource: actualModelName, withExtension:"mlpackage")!
+            
+            guard let packageURL = Bundle.module.url(forResource: actualModelName, withExtension:"mlpackage") ??
+                                   Bundle.module.url(forResource: actualModelName, withExtension:"mlpackage", subdirectory: "Models") else {
+                fatalError("CoreML Model '\(actualModelName)' not found in CLI Bundle!")
+            }
             let compiledURL = try MLModel.compileModel(at: packageURL)
             let coreMLModel = try MLModel(contentsOf: compiledURL, configuration: config)
 #endif

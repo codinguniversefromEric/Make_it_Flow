@@ -138,20 +138,22 @@ class BatchProcessor: ObservableObject {
                     rawImage = img
                     cgImg = img.cgImage
 #elseif os(macOS)
-                    let colorSpace = CGColorSpaceCreateDeviceRGB()
-                    if let context = CGContext(data: nil, width: Int(scaledSize.width), height: Int(scaledSize.height), bitsPerComponent: 8, bytesPerRow: 0, space: colorSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) {
-                        context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+                    let nsImage = NSImage(size: scaledSize)
+                    nsImage.lockFocus()
+                    if let context = NSGraphicsContext.current?.cgContext {
+                        context.setFillColor(NSColor.white.cgColor)
                         context.fill(CGRect(origin: .zero, size: scaledSize))
-                        context.saveGState()
-                        context.translateBy(x: 0, y: scaledSize.height)
-                        context.scaleBy(x: scale, y: -scale)
-                        page.draw(with: .cropBox, to: context)
-                        context.restoreGState()
                         
-                        if let cgImage = context.makeImage() {
-                            cgImg = cgImage
-                            rawImage = NSImage(cgImage: cgImage, size: scaledSize)
-                        }
+                        // We must scale the context if scale != 1.0
+                        context.scaleBy(x: scale, y: scale)
+                        page.draw(with: .cropBox, to: context)
+                    }
+                    nsImage.unlockFocus()
+                    
+                    var proposedRect = CGRect(origin: .zero, size: scaledSize)
+                    if let cgImage = nsImage.cgImage(forProposedRect: &proposedRect, context: nil, hints: nil) {
+                        cgImg = cgImage
+                        rawImage = nsImage
                     }
 #endif
                 }
