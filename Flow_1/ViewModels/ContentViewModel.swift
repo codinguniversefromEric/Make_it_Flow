@@ -183,7 +183,7 @@ class ContentViewModel: ObservableObject {
     }
     
     // 從 PDF 產生縮圖
-    func generatePDFThumbnail(from url: URL) -> UIImage? {
+    nonisolated func generatePDFThumbnail(from url: URL) -> UIImage? {
         let isSecurityScoped = url.startAccessingSecurityScopedResource()
         defer { if isSecurityScoped { url.stopAccessingSecurityScopedResource() } }
         
