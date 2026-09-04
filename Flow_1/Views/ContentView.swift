@@ -149,22 +149,8 @@ extension ContentView {
                 if vm.settings.debugMode {
                     documentDebugView(document)
                 } else {
-                    VStack(spacing: 24) {
-                        Spacer()
-                        Image(systemName: "doc.text.magnifyingglass")
-                            .font(.system(size: 64))
-                            .foregroundStyle(.secondary)
-                        Text("Processing document...")
-                            .font(.title3.weight(.medium))
-                            .foregroundColor(.secondary)
-                        if vm.batchProcessor.isProcessing {
-                            ProgressView(value: vm.batchProcessor.progress)
-                                .progressViewStyle(.linear)
-                                .frame(maxWidth: 200)
-                        }
-                        Spacer()
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    Color.clear
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             } else {
                 homeLibraryView
@@ -398,22 +384,11 @@ extension ContentView {
                                 GlassLiquidView(progress: vm.batchProcessor.progress, islandY: islandY)
                                     .transition(.opacity.animation(.easeInOut(duration: 0.4)))
                                 
-                                // 原生取消按鈕加上進度文字 (Visibility of System Status)
+                                // 原生取消按鈕 (Visibility of System Status)
                                 VStack(spacing: 12) {
                                     Spacer()
                                     
-                                    let percent = Int(round(vm.batchProcessor.progress * 100))
-                                    Text(percent >= 100 ? "EPUB is ready" : "\(percent)%")
-                                        .font(.system(size: percent >= 100 ? 18 : 24, weight: .bold, design: .rounded))
-                                        .foregroundColor(.primary)
-                                        .padding(.horizontal, 16)
-                                        .padding(.vertical, 8)
-                                        .background(.ultraThinMaterial, in: Capsule())
-                                        .shadow(color: .black.opacity(0.1), radius: 5, y: 2)
-                                        .accessibilityLabel(percent >= 100 ? "Finalizing conversion" : "Converting, \(percent) percent complete")
-                                        .accessibilityAddTraits(.updatesFrequently)
-                                    
-                                    Button(role: .destructive, action: {
+                                    Button(role: .cancel, action: {
                                         vm.cancelProcessing()
                                     }) {
                                         Label("Cancel", systemImage: "xmark.circle.fill")
@@ -421,12 +396,12 @@ extension ContentView {
                                             .padding(.horizontal, 16)
                                             .padding(.vertical, 8)
                                     }
-                                    .buttonStyle(.borderedProminent)
-                                    .tint(.red)
+                                    .buttonStyle(.bordered)
+                                    .tint(.accentColor)
                                     .accessibilityLabel("Cancel conversion")
                                     .accessibilityHint("Stop the current PDF to EPUB conversion")
                                     .controlSize(.large)
-                                    .shadow(color: .red.opacity(0.2), radius: 5, y: 2)
+                                    .shadow(color: .accentColor.opacity(0.2), radius: 5, y: 2)
                                 }
                                 .padding(.bottom, 60)
                             }
@@ -503,8 +478,8 @@ extension ContentView {
             path.addLine(to: CGPoint(x: 0, y: yOffset))
             
             let frequency = 1.0
-            // 降低步進值，讓曲線更加細膩絲滑
-            for x in stride(from: 0.0, through: Double(width), by: 2.0) {
+            // 提高步進值 (由 2.0 改為 15.0)，大幅減少每幀的繪製點數以解決 CPU 卡頓
+            for x in stride(from: 0.0, through: Double(width), by: 15.0) {
                 let relativeX = x / Double(width)
                 let sine = sin(relativeX * .pi * 2 * frequency + phase)
                 let y = yOffset + amplitude * CGFloat(sine)
@@ -635,7 +610,7 @@ extension ContentView {
                     // 動畫圓軌道
                     Circle()
                         .trim(from: 0, to: drawCircle)
-                        .stroke(Color.green, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                        .stroke(Color.accentColor.opacity(0.6), style: StrokeStyle(lineWidth: 6, lineCap: .round))
                         .rotationEffect(.degrees(-90))
                     
                     // 動畫打勾
@@ -645,7 +620,7 @@ extension ContentView {
                         path.addLine(to: CGPoint(x: 72, y: 34))
                     }
                     .trim(from: 0, to: drawCheck)
-                    .stroke(Color.green, style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
+                    .stroke(Color.accentColor.opacity(0.6), style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
                 }
                 .frame(width: 100, height: 100)
                 
