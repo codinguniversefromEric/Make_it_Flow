@@ -427,20 +427,21 @@ extension ContentView {
                 // 原本 120fps 與 CoreML 推論搶 CPU，是卡頓的真正元兇
                 TimelineView(.periodic(from: .now, by: 1.0 / 30.0)) { timeline in
                     let now = timeline.date.timeIntervalSinceReferenceDate
-                    // 放慢波動速度 (除以 3.0 而非 2.0)，優雅而不抽搐
-                    let phase = now * .pi * 2 / 3.0
+                    // 恢復原本較快的波動速度
+                    let phase = now * .pi * 2 / 2.0
                     
                     let targetMaxY = geo.size.height + 40
                     let currentY = islandY + (targetMaxY - islandY) * CGFloat(animatedProgress)
                     
                     ZStack {
-                        WaveShape(yOffset: currentY, phase: phase + .pi / 2, amplitude: 5, frequency: 5)
+                        // 恢復原本的大氣巨浪 (frequency: 1)，並搭配原本的振幅 (12, 18)
+                        WaveShape(yOffset: currentY, phase: phase + .pi / 2, amplitude: 12, frequency: 1)
                             .fill(Color.accentColor.opacity(0.15))
                         
-                        WaveShape(yOffset: currentY, phase: phase, amplitude: 8, frequency: 5)
+                        WaveShape(yOffset: currentY, phase: phase, amplitude: 18, frequency: 1)
                             .fill(.ultraThinMaterial)
                             .overlay(
-                                WaveShape(yOffset: currentY, phase: phase, amplitude: 8, frequency: 5)
+                                WaveShape(yOffset: currentY, phase: phase, amplitude: 18, frequency: 1)
                                     .stroke(Color.primary.opacity(0.15), lineWidth: 1.5)
                             )
                             .shadow(color: .black.opacity(0.1), radius: 10, y: 5)
