@@ -49,6 +49,15 @@ class BatchProcessor: ObservableObject {
     /// 非同步匯出 PDF 文件，包含版面分析與 Markdown/EPUB 產生
     @MainActor
     func exportDocument(_ document: PDFDocument, fileName: String? = nil) async {
+        // 向系統申請背景執行權限，確保關閉螢幕或退到背景時轉檔與動態島繼續運作 (Issue: 背景凍結)
+        var bgTaskID: UIBackgroundTaskIdentifier = .invalid
+#if os(iOS)
+        bgTaskID = UIApplication.shared.beginBackgroundTask(withName: "PDF_Export_Task") {
+            UIApplication.shared.endBackgroundTask(bgTaskID)
+            bgTaskID = .invalid
+        }
+#endif
+        
         AppLogger.shared.info("Starting PDF export. Total pages: \(document.pageCount)")
         self.isCancelled = false
         self.isProcessing = true
@@ -455,6 +464,13 @@ class BatchProcessor: ObservableObject {
             }
         }
         await self.currentTask?.value
+        
+#if os(iOS)
+        if bgTaskID != .invalid {
+            UIApplication.shared.endBackgroundTask(bgTaskID)
+            bgTaskID = .invalid
+        }
+#endif
     }
     
 

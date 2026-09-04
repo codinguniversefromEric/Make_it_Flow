@@ -87,18 +87,26 @@ class ContentViewModel: ObservableObject {
     func handlePickedPDF(url: URL) {
         showFilePicker = false
         
-        self.currentThumbnail = generatePDFThumbnail(from: url)
-        withAnimation { animState = .showingThumbnail }
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        
         Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            // 將產生縮圖與讀取龐大 PDF 移至背景執行，避免卡死主畫面 UI (Issue: 點擊延遲 1 秒)
+            let (thumbnail, doc) = await Task.detached(priority: .userInitiated) {
+                let t = self.generatePDFThumbnail(from: url)
+                let d = PDFDocument(url: url)
+                return (t, d)
+            }.value
+            
+            self.currentThumbnail = thumbnail
+            withAnimation { animState = .showingThumbnail }
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            
+            // 縮短人工等待時間，讓 UI 更輕快流暢
+            try? await Task.sleep(nanoseconds: 300_000_000)
             withAnimation { animState = .suckingToIsland }
             
-            try? await Task.sleep(nanoseconds: 500_000_000)
+            try? await Task.sleep(nanoseconds: 300_000_000)
             withAnimation { animState = .processing }
             
-            if let doc = PDFDocument(url: url) {
+            if let doc = doc {
                 self.pdfDocument = doc
                 let fileName = url.deletingPathExtension().lastPathComponent
                 await batchProcessor.exportDocument(doc, fileName: fileName)
