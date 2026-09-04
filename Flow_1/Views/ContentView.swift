@@ -481,8 +481,9 @@ extension ContentView {
             // 提高步進值 (由 2.0 改為 15.0)，大幅減少每幀的繪製點數以解決 CPU 卡頓
             for x in stride(from: 0.0, through: Double(width), by: 15.0) {
                 let relativeX = x / Double(width)
-                let sine = sin(relativeX * .pi * 2 * frequency + phase)
-                let y = yOffset + amplitude * CGFloat(sine)
+                // 駐波 (Standing wave)：sin(空間) * cos(時間)，波浪原地上下起伏不偏移
+                let wave = sin(relativeX * .pi * 2 * frequency) * cos(phase)
+                let y = yOffset + amplitude * CGFloat(wave)
                 path.addLine(to: CGPoint(x: x, y: y))
             }
             
