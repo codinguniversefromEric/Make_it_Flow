@@ -90,7 +90,7 @@ class BatchProcessor: ObservableObject {
         let assetsDir = exportDir.appendingPathComponent("assets")
         try? fm.createDirectory(at: assetsDir, withIntermediateDirectories: true)
         
-        self.currentTask = Task.detached(priority: .userInitiated) {
+        self.currentTask = Task.detached(priority: .utility) {
             // 📖 These mutable variables are fully owned by the detached task to avoid data races
             var detectedTitle = initialTitle
             var fullHTML = ""

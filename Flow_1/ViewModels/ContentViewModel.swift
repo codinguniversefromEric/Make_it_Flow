@@ -89,7 +89,7 @@ class ContentViewModel: ObservableObject {
         
         Task { @MainActor in
             // 將產生縮圖與讀取龐大 PDF 移至背景執行，避免卡死主畫面 UI (Issue: 點擊延遲 1 秒)
-            let (thumbnail, doc) = await Task.detached(priority: .userInitiated) {
+            let (thumbnail, doc) = await Task.detached(priority: .utility) {
                 let t = self.generatePDFThumbnail(from: url)
                 let d = PDFDocument(url: url)
                 return (t, d)
