@@ -27,117 +27,114 @@ struct ContentView: View {
             Color(UIColor.systemGroupedBackground)
                 .ignoresSafeArea()
             
-            VStack(spacing: 0) {
-                // 1. 原生導航列與主內容
-                NavigationView {
-                    mainContentView
-                        .toolbar {
-                            ToolbarItem(placement: .topBarLeading) {
-                                if isEditing {
-                                    Button {
-                                        if selectedItems.count == vm.libraryStore.items.count && !vm.libraryStore.items.isEmpty {
-                                            selectedItems.removeAll()
-                                        } else {
-                                            selectedItems = Set(vm.libraryStore.items.map { $0.id })
-                                        }
-                                    } label: {
-                                        Text(selectedItems.count == vm.libraryStore.items.count && !vm.libraryStore.items.isEmpty ? "Deselect All" : "Select All")
-                                    }
-                                } else {
-                                    Button { vm.isSettingsPresented = true } label: { Label("Preferences", systemImage: "slider.horizontal.3") }
-                                        .accessibilityLabel("Settings")
-                                        .accessibilityHint("Open app preferences")
-                                }
-                            }
-                            ToolbarItem(placement: .principal) {
-                                Text("flow")
-                                    .font(.system(size: 36, weight: .black, design: .rounded))
-                                    .tracking(-1.5)
-                                    .foregroundColor(.primary)
-                            }
-                            ToolbarItemGroup(placement: .topBarTrailing) {
+            // 1. 原生導航列與主內容
+            NavigationView {
+                mainContentView
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            if isEditing {
                                 Button {
-                                    withAnimation {
-                                        isEditing.toggle()
-                                        if !isEditing {
-                                            selectedItems.removeAll()
-                                        }
+                                    if selectedItems.count == vm.libraryStore.items.count && !vm.libraryStore.items.isEmpty {
+                                        selectedItems.removeAll()
+                                    } else {
+                                        selectedItems = Set(vm.libraryStore.items.map { $0.id })
                                     }
                                 } label: {
-                                    Text(isEditing ? "Done" : "Edit")
-                                        .fontWeight(.medium)
+                                    Text(selectedItems.count == vm.libraryStore.items.count && !vm.libraryStore.items.isEmpty ? "Deselect All" : "Select All")
                                 }
-                                if !isEditing {
-                                    Button(action: { vm.showFilePicker = true }) {
-                                        Image(systemName: "plus")
-                                            .font(.headline)
-                                    }
-                                    .accessibilityLabel("Add PDF")
-                                    .accessibilityHint("Open file picker to select a PDF for conversion")
-                                }
+                            } else {
+                                Button { vm.isSettingsPresented = true } label: { Label("Preferences", systemImage: "slider.horizontal.3") }
+                                    .accessibilityLabel("Settings")
+                                    .accessibilityHint("Open app preferences")
                             }
                         }
-                        .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
-                }
-                .navigationViewStyle(.stack)
-                
-                
-                // 隱藏的定位器
-                Color.clear
-                    .ignoresSafeArea()
-                    .overlay(alignment: .top) {
-                        Capsule()
-                            .fill(Color.clear)
-                            .frame(width: 10, height: 1)
-                            .background(AnchorDetector(coordinateSpace: .global))
-                            .offset(y: -32)
+                        ToolbarItem(placement: .principal) {
+                            Text("flow")
+                                .font(.system(size: 36, weight: .black, design: .rounded))
+                                .tracking(-1.5)
+                                .foregroundColor(.primary)
+                        }
+                        ToolbarItemGroup(placement: .topBarTrailing) {
+                            Button {
+                                withAnimation {
+                                    isEditing.toggle()
+                                    if !isEditing {
+                                        selectedItems.removeAll()
+                                    }
+                                }
+                            } label: {
+                                Text(isEditing ? "Done" : "Edit")
+                                    .fontWeight(.medium)
+                            }
+                            if !isEditing {
+                                Button(action: { vm.showFilePicker = true }) {
+                                    Image(systemName: "plus")
+                                        .font(.headline)
+                                }
+                                .accessibilityLabel("Add PDF")
+                                .accessibilityHint("Open file picker to select a PDF for conversion")
+                            }
+                        }
                     }
-                    .allowsHitTesting(false)
-                
-                // 流暢的水波紋動畫層
-                animationOverlay
-                
-                // 全螢幕打勾動畫 HUD (FaceID Style)
-                if vm.showSuccessHUD {
-                    FaceIDCheckmarkView()
-                        .padding(32)
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 32, style: .continuous))
-                        .shadow(color: .black.opacity(0.15), radius: 30, y: 15)
-                        .transition(.scale(scale: 0.8).combined(with: .opacity))
-                        .zIndex(100)
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel("Conversion complete")
-                        .accessibilityAddTraits(.isStaticText)
+                    .background(Color(UIColor.systemGroupedBackground).ignoresSafeArea())
+            }
+            .navigationViewStyle(.stack)
+            
+            // 隱藏的定位器
+            Color.clear
+                .ignoresSafeArea()
+                .overlay(alignment: .top) {
+                    Capsule()
+                        .fill(Color.clear)
+                        .frame(width: 10, height: 1)
+                        .background(AnchorDetector(coordinateSpace: .global))
+                        .offset(y: -32)
                 }
+                .allowsHitTesting(false)
+            
+            // 流暢的水波紋動畫層
+            animationOverlay
+            
+            // 全螢幕打勾動畫 HUD (FaceID Style)
+            if vm.showSuccessHUD {
+                FaceIDCheckmarkView()
+                    .padding(32)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 32, style: .continuous))
+                    .shadow(color: .black.opacity(0.15), radius: 30, y: 15)
+                    .transition(.scale(scale: 0.8).combined(with: .opacity))
+                    .zIndex(100)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Conversion complete")
+                    .accessibilityAddTraits(.isStaticText)
             }
-            .onPreferenceChange(IslandAnchorKey.self) { center in
-                if center != .zero && vm.dynamicIslandCenter != center {
-                    vm.dynamicIslandCenter = center
-                }
+        }
+        .onPreferenceChange(IslandAnchorKey.self) { center in
+            if center != .zero && vm.dynamicIslandCenter != center {
+                vm.dynamicIslandCenter = center
             }
-            .sheet(isPresented: $vm.showFilePicker) {
-                PDFDocumentPicker { url in
-                    vm.handlePickedPDF(url: url)
-                }
+        }
+        .sheet(isPresented: $vm.showFilePicker) {
+            PDFDocumentPicker { url in
+                vm.handlePickedPDF(url: url)
             }
-            .sheet(isPresented: $vm.isSettingsPresented) {
-                SettingsView()
+        }
+        .sheet(isPresented: $vm.isSettingsPresented) {
+            SettingsView()
+        }
+        .onChange(of: vm.batchProcessor.exportedFileURL) { newURL in
+            if let epubURL = newURL {
+                vm.finishConversion(epubURL: epubURL)
             }
-            .onChange(of: vm.batchProcessor.exportedFileURL) { newURL in
-                if let epubURL = newURL {
-                    vm.finishConversion(epubURL: epubURL)
-                }
-            }
-            .alert("Conversion Error", isPresented: $vm.showErrorAlert) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(vm.errorMessage)
-            }
-            .onOpenURL { url in
-                // Hook Model: External Trigger - Receive shared PDF from Safari/Files
-                if url.pathExtension.lowercased() == "pdf" {
-                    vm.handlePickedPDF(url: url)
-                }
+        }
+        .alert("Conversion Error", isPresented: $vm.showErrorAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(vm.errorMessage)
+        }
+        .onOpenURL { url in
+            // Hook Model: External Trigger - Receive shared PDF from Safari/Files
+            if url.pathExtension.lowercased() == "pdf" {
+                vm.handlePickedPDF(url: url)
             }
         }
     }

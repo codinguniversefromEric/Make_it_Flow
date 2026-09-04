@@ -1,8 +1,9 @@
-*.bin
+# Compiled PyTorch and raw bin
 *.safetensors
 
-*.mlmodel
-*.mlmodelc
+# Do not ignore CoreML package internal contents
+!*.mlpackage/**/*.mlmodel
+!*.mlpackage/**/*.bin
 
 # Secrets
 Flow_1/Core/Secrets.swift
