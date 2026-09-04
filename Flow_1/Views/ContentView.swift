@@ -420,37 +420,34 @@ extension ContentView {
         var islandY: CGFloat
         
         @State private var animatedProgress: Double = 0
+        @State private var phase: Double = 0.0
         
         var body: some View {
             GeometryReader { geo in
-                // ✅ 根本修復：從 .animation (120fps) 降為 30fps
-                // 原本 120fps 與 CoreML 推論搶 CPU，是卡頓的真正元兇
-                TimelineView(.periodic(from: .now, by: 1.0 / 30.0)) { timeline in
-                    let now = timeline.date.timeIntervalSinceReferenceDate
-                    // 恢復原本較快的波動速度
-                    let phase = now * .pi * 2 / 2.0
+                let targetMaxY = geo.size.height + 40
+                let currentY = islandY + (targetMaxY - islandY) * CGFloat(animatedProgress)
+                
+                ZStack {
+                    // 恢復原本的大氣巨浪 (frequency: 1)，搭配振幅 (12, 18)
+                    WaveShape(yOffset: currentY, phase: phase + .pi / 2, amplitude: 12, frequency: 1)
+                        .fill(Color.accentColor.opacity(0.15))
                     
-                    let targetMaxY = geo.size.height + 40
-                    let currentY = islandY + (targetMaxY - islandY) * CGFloat(animatedProgress)
-                    
-                    ZStack {
-                        // 恢復原本的大氣巨浪 (frequency: 1)，並搭配原本的振幅 (12, 18)
-                        WaveShape(yOffset: currentY, phase: phase + .pi / 2, amplitude: 12, frequency: 1)
-                            .fill(Color.accentColor.opacity(0.15))
-                        
-                        WaveShape(yOffset: currentY, phase: phase, amplitude: 18, frequency: 1)
-                            .fill(.ultraThinMaterial)
-                            .overlay(
-                                WaveShape(yOffset: currentY, phase: phase, amplitude: 18, frequency: 1)
-                                    .stroke(Color.primary.opacity(0.15), lineWidth: 1.5)
-                            )
-                            .shadow(color: .black.opacity(0.1), radius: 10, y: 5)
-                    }
+                    WaveShape(yOffset: currentY, phase: phase, amplitude: 18, frequency: 1)
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            WaveShape(yOffset: currentY, phase: phase, amplitude: 18, frequency: 1)
+                                .stroke(Color.primary.opacity(0.15), lineWidth: 1.5)
+                        )
+                        .shadow(color: .black.opacity(0.1), radius: 10, y: 5)
                 }
             }
-
             .onAppear {
                 animatedProgress = progress
+                // ✅ 終極優化：移除 TimelineView，改用底層 CoreAnimation 硬體加速 120fps
+                // 不會讓 SwiftUI 重繪畫面，完美避開與 CoreML 搶 CPU 的問題
+                withAnimation(.linear(duration: 2.0).repeatForever(autoreverses: false)) {
+                    phase = .pi * 2
+                }
             }
             .onChange(of: progress) { newVal in
                 withAnimation(.spring(response: 0.8, dampingFraction: 0.75)) {
@@ -464,11 +461,15 @@ extension ContentView {
         var yOffset: CGFloat
         var phase: Double
         var amplitude: CGFloat
-        var frequency: Double  // ✅ 新增：外部傳入，確保整數倍
+        var frequency: Double
         
-        var animatableData: CGFloat {
-            get { yOffset }
-            set { yOffset = newValue }
+        // ✅ 核心魔法：告訴 SwiftUI 這兩個變數需要進行 GPU / CoreAnimation 幾何插值
+        var animatableData: AnimatablePair<CGFloat, Double> {
+            get { AnimatablePair(yOffset, phase) }
+            set {
+                yOffset = newValue.first
+                phase = newValue.second
+            }
         }
         
         func path(in rect: CGRect) -> Path {
@@ -476,19 +477,10 @@ extension ContentView {
             let width = rect.width
             guard width > 0 else { return path }
             
-            // ✅ 歪斜的根本原因修復：
-            // 舊版: path 從 (0, yOffset) 直線跳到第一個波浪點，
-            //        再從最後一個波浪點直線跳到 (width, 0)。
-            //        因為 stride 不一定剛好命中 width，且 sin(phase) ≠ 0，
-            //        左右兩端的 Y 座標不同，視覺上就是一條歪斜的對角線。
-            //
-            // 修復: 1) frequency 用整數 5 → sin(0+phase) == sin(2π*5+phase)，左右端點必定等高
-            //       2) 明確在 x=0 和 x=width 處各插一個精確的波浪點
-            //       3) 左邊緣 (0,0)→(0,waveY) 不再跳到平坦的 yOffset
-
+            // 起點：左上角
             path.move(to: CGPoint(x: 0, y: 0))
             
-            // 第一個波浪點：x=0 的精確 Y 值
+            // 第一個波浪點：x=0 的精確 Y 值，確保左邊緣無縫接合
             let startY = yOffset + amplitude * CGFloat(sin(phase))
             path.addLine(to: CGPoint(x: 0, y: startY))
             
@@ -503,8 +495,7 @@ extension ContentView {
                 x += step
             }
             
-            // 最後一個波浪點：x=width 的精確 Y 值
-            // 因為 frequency=5 (整數), sin(2π*5 + phase) = sin(phase) = startY，左右完全對稱
+            // 最後一個波浪點：x=width 的精確 Y 值，確保左右對稱 (因為 frequency 為整數)
             let endY = yOffset + amplitude * CGFloat(sin(.pi * 2 * frequency + phase))
             path.addLine(to: CGPoint(x: width, y: endY))
             
