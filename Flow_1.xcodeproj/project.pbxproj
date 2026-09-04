@@ -62,13 +62,6 @@
 			);
 			target = F2B4601E2FDAD06E007BBD25 /* Flow_1 */;
 		};
-		F26FEE613042DBAF009B84D8 /* Exceptions for "Flow_1" folder in "Flow_1" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				"Flow-1-Info.plist",
-			);
-			target = F2B4601E2FDAD06E007BBD25 /* Flow_1 */;
-		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -83,9 +76,6 @@
 		};
 		F2B460212FDAD06E007BBD25 /* Flow_1 */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				F26FEE613042DBAF009B84D8 /* Exceptions for "Flow_1" folder in "Flow_1" target */,
-			);
 			path = Flow_1;
 			sourceTree = "<group>";
 		};
