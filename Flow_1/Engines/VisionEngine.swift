@@ -162,12 +162,13 @@ class YOLOLayoutParser: LayoutParser {
     /// 處理單一影像切片的推論與座標轉換
     private func processTile(tileImage: CGImage, tileRect: CGRect, fullWidth: CGFloat, fullHeight: CGFloat, model: VNCoreMLModel) async -> [LayoutBlock] {
         return await withCheckedContinuation { continuation in
+            let safeContinuation = SafeContinuation(continuation)
             let request = VNCoreMLRequest(model: model) { request, error in
                 print("--- YOLO Request Finished ---")
                 print("Error: \(String(describing: error))")
                 print("Results count: \(request.results?.count ?? 0)")
                 guard let results = request.results else {
-                    continuation.resume(returning: [])
+                    safeContinuation.resume(returning: [])
                     return
                 }
                 
@@ -313,7 +314,7 @@ class YOLOLayoutParser: LayoutParser {
                     }
                 }
                 
-                continuation.resume(returning: blocks)
+                safeContinuation.resume(returning: blocks)
             }
             
             request.imageCropAndScaleOption = .scaleFit
@@ -323,7 +324,7 @@ class YOLOLayoutParser: LayoutParser {
                 try handler.perform([request])
             } catch {
                 AppLogger.shared.error("YOLO 切片推論失敗: \(error)")
-                continuation.resume(returning: [])
+                safeContinuation.resume(returning: [])
             }
         }
     }
@@ -379,5 +380,23 @@ class YOLOLayoutParser: LayoutParser {
         }
         
         return keep
+    }
+}
+
+fileprivate class SafeContinuation<T> {
+    private var continuation: CheckedContinuation<T, Never>?
+    private let lock = NSLock()
+    
+    init(_ continuation: CheckedContinuation<T, Never>) {
+        self.continuation = continuation
+    }
+    
+    func resume(returning value: T) {
+        lock.lock()
+        defer { lock.unlock() }
+        if let c = continuation {
+            c.resume(returning: value)
+            continuation = nil
+        }
     }
 }
