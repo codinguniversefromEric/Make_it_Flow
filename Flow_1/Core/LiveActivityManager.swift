@@ -1,5 +1,5 @@
 //
-//  ActivityTracker.swift
+//  LiveActivityManager.swift
 //  Flow_1
 //
 //  Created by Libri-AI on 2026/07/08.
@@ -13,7 +13,7 @@ import ActivityKit
 // MARK: - Activity Tracking
 
 /// 追蹤與管理動態島及鎖定畫面的即時活動
-@MainActor final class ActivityTracker {
+@MainActor final class LiveActivityManager {
     private var currentActivity: Activity<FlowWidgetAttributes>? = nil
     
     init() {
@@ -70,7 +70,7 @@ import ActivityKit
     }
 }
 #else
-final class ActivityTracker {
+final class LiveActivityManager {
     init() {}
     func start(documentName: String) {}
     func update(progress: Double, message: String) async {}

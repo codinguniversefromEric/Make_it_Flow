@@ -26,7 +26,7 @@ class BatchProcessor: ObservableObject {
     
     @Published var isCancelled: Bool = false
     private var currentTask: Task<Void, Never>?
-    private let activityTracker = ActivityTracker()
+    private let activityTracker = LiveActivityManager()
     private var cancellables = Set<AnyCancellable>()
     
     init() {
