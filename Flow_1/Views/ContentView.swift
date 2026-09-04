@@ -433,13 +433,13 @@ extension ContentView {
                     let currentY = islandY + (targetMaxY - islandY) * CGFloat(animatedProgress)
                     
                     ZStack {
-                        WaveShape(yOffset: currentY, phase: phase + .pi/2, amplitude: 12)
+                        WaveShape(yOffset: currentY, phase: phase + .pi/2, amplitude: 6)
                             .fill(Color.accentColor.opacity(0.15))
                         
-                        WaveShape(yOffset: currentY, phase: phase, amplitude: 18)
+                        WaveShape(yOffset: currentY, phase: phase, amplitude: 10)
                             .fill(.ultraThinMaterial)
                             .overlay(
-                                WaveShape(yOffset: currentY, phase: phase, amplitude: 18)
+                                WaveShape(yOffset: currentY, phase: phase, amplitude: 10)
                                     .stroke(Color.primary.opacity(0.15), lineWidth: 1.5)
                             )
                             .shadow(color: .black.opacity(0.1), radius: 10, y: 5)
@@ -476,13 +476,13 @@ extension ContentView {
             
             path.move(to: CGPoint(x: 0, y: 0))
             path.addLine(to: CGPoint(x: 0, y: yOffset))
-            
-            let frequency = 1.0
+            // 增加頻率，讓波浪有數個小漣漪，看起來才是平的水平面，而不是單一巨大的斜坡 (歪掉)
+            let frequency = 3.0
             // 提高步進值 (由 2.0 改為 15.0)，大幅減少每幀的繪製點數以解決 CPU 卡頓
             for x in stride(from: 0.0, through: Double(width), by: 15.0) {
                 let relativeX = x / Double(width)
-                // 駐波 (Standing wave)：sin(空間) * cos(時間)，波浪原地上下起伏不偏移
-                let wave = sin(relativeX * .pi * 2 * frequency) * cos(phase)
+                // 恢復行進波，讓小漣漪自然流動
+                let wave = sin(relativeX * .pi * 2 * frequency + phase)
                 let y = yOffset + amplitude * CGFloat(wave)
                 path.addLine(to: CGPoint(x: x, y: y))
             }
