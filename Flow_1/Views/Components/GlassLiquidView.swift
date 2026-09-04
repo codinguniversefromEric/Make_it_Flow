@@ -6,34 +6,33 @@ struct GlassLiquidView: View {
     var islandY: CGFloat
     
     @State private var animatedProgress: Double = 0
-    @State private var phase: Double = 0.0
     
     var body: some View {
         GeometryReader { geo in
             let targetMaxY = geo.size.height + 40
             let currentY = islandY + (targetMaxY - islandY) * CGFloat(animatedProgress)
             
-            ZStack {
-                // 恢復原本的大氣巨浪 (frequency: 1)，搭配振幅 (12, 18)
-                WaveShape(yOffset: currentY, phase: phase + .pi / 2, amplitude: 12, frequency: 1)
-                    .fill(Color.accentColor.opacity(0.15))
+            TimelineView(.animation) { timeline in
+                let now = timeline.date.timeIntervalSinceReferenceDate
+                let phase = now * .pi * 2 / 2.0
                 
-                WaveShape(yOffset: currentY, phase: phase, amplitude: 18, frequency: 1)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        WaveShape(yOffset: currentY, phase: phase, amplitude: 18, frequency: 1)
-                            .stroke(Color.primary.opacity(0.15), lineWidth: 1.5)
-                    )
-                    .shadow(color: .black.opacity(0.1), radius: 10, y: 5)
+                ZStack {
+                    // 恢復原本的大氣巨浪 (frequency: 1)，搭配振幅 (12, 18)
+                    WaveShape(yOffset: currentY, phase: phase + .pi / 2, amplitude: 12, frequency: 1)
+                        .fill(Color.accentColor.opacity(0.15))
+                    
+                    WaveShape(yOffset: currentY, phase: phase, amplitude: 18, frequency: 1)
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            WaveShape(yOffset: currentY, phase: phase, amplitude: 18, frequency: 1)
+                                .stroke(Color.primary.opacity(0.15), lineWidth: 1.5)
+                        )
+                        .shadow(color: .black.opacity(0.1), radius: 10, y: 5)
+                }
             }
         }
         .onAppear {
             animatedProgress = progress
-            // ✅ 終極優化：移除 TimelineView，改用底層 CoreAnimation 硬體加速 120fps
-            // 不會讓 SwiftUI 重繪畫面，完美避開與 CoreML 搶 CPU 的問題
-            withAnimation(.linear(duration: 2.0).repeatForever(autoreverses: false)) {
-                phase = .pi * 2
-            }
         }
         .onChange(of: progress) { newVal in
             withAnimation(.spring(response: 0.8, dampingFraction: 0.75)) {
@@ -49,13 +48,10 @@ struct WaveShape: Shape {
     var amplitude: CGFloat
     var frequency: Double
     
-    // ✅ 核心魔法：告訴 SwiftUI 這兩個變數需要進行 GPU / CoreAnimation 幾何插值
-    var animatableData: AnimatablePair<CGFloat, Double> {
-        get { AnimatablePair(yOffset, phase) }
-        set {
-            yOffset = newValue.first
-            phase = newValue.second
-        }
+    // phase 由 TimelineView 直接刷新，不需要插值；yOffset 需要彈簧插值
+    var animatableData: CGFloat {
+        get { yOffset }
+        set { yOffset = newValue }
     }
     
     func path(in rect: CGRect) -> Path {
